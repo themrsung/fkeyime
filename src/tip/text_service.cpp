@@ -24,6 +24,17 @@ constexpr GUID kPreservedKeys[] = {
 constexpr UINT kMessageApply = WM_APP + 1;
 constexpr wchar_t kWindowClass[] = L"FKeyIDEMessageWindow";
 
+const wchar_t* KeyName(FKey key) {
+    switch (key) {
+        case FKey::kF17: return L"F17";
+        case FKey::kF18: return L"F18";
+        case FKey::kF19: return L"F19";
+        case FKey::kF20: return L"F20";
+        case FKey::kHanYeong: return L"HanYeong";
+    }
+    return L"?";
+}
+
 const wchar_t* ModeName(Mode mode) {
     switch (mode) {
         case Mode::kEnglish: return L"EN";
@@ -112,6 +123,7 @@ TextService::TextService()
                                                        TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE)),
       defer_activation_(ReadOption(L"Defer", 0) != 0),
       preserve_keys_(ReadOption(L"PreserveKeys", 1) != 0) {
+    policy_.han_yeong_toggles = ReadOption(L"HanYeongToggles", 0) != 0;
     DllAddRef();
 }
 
@@ -159,9 +171,9 @@ STDMETHODIMP TextService::ActivateEx(ITfThreadMgr* thread_mgr, TfClientId client
         ModeFor(active.guidProfile, &state_.mode);
     }
     log::Write(L"ActivateEx tid=%lu flags=%#lx mode=%s options: ActivateFlags=%#lx Defer=%d "
-               L"PreserveKeys=%d",
+               L"PreserveKeys=%d HanYeongToggles=%d",
                GetCurrentThreadId(), flags, ModeName(state_.mode), activate_flags_,
-               defer_activation_, preserve_keys_);
+               defer_activation_, preserve_keys_, policy_.han_yeong_toggles);
 
     ComPtr<ITfKeystrokeMgr> keystrokes;
     if (SUCCEEDED(thread_mgr_.As(&keystrokes))) {
@@ -224,8 +236,22 @@ STDMETHODIMP TextService::Deactivate() {
     return S_OK;
 }
 
-bool TextService::IsOurFKey(WPARAM vk) const {
-    return vk >= VK_F17 && vk <= VK_F20 && !HasModifiers();
+bool TextService::IsOurKey(WPARAM vk, LPARAM lparam, FKey* key) const {
+    if (HasModifiers()) return false;
+    if (vk >= VK_F17 && vk <= VK_F20) {
+        *key = static_cast<FKey>(vk - VK_F17);
+        return true;
+    }
+    // 한/영 on Korean keyboards: VK_HANGUL, or the LANG1 scan code (0x72, sent as 0xF2) where
+    // the layout has no VK for it. Not right Alt (E0 38): the Korean layout turns that into
+    // VK_HANGUL itself, but under the Japanese layout it's the HHKB's real right Alt.
+    // VK_HANGUL is also VK_KANA; the HHKB's かな key is VK_DBE_HIRAGANA under kbd106 (measured).
+    const UINT scan = (lparam >> 16) & 0xff;
+    if (policy_.han_yeong_toggles && (vk == VK_HANGUL || scan == 0x72 || scan == 0xf2)) {
+        *key = FKey::kHanYeong;
+        return true;
+    }
+    return false;
 }
 
 STDMETHODIMP TextService::OnSetFocus(BOOL foreground) {
@@ -233,25 +259,29 @@ STDMETHODIMP TextService::OnSetFocus(BOOL foreground) {
     return S_OK;
 }
 
-STDMETHODIMP TextService::OnTestKeyDown(ITfContext*, WPARAM wparam, LPARAM, BOOL* eaten) {
-    *eaten = IsOurFKey(wparam);
+STDMETHODIMP TextService::OnTestKeyDown(ITfContext*, WPARAM wparam, LPARAM lparam, BOOL* eaten) {
+    FKey key;
+    *eaten = IsOurKey(wparam, lparam, &key);
     return S_OK;
 }
 
-STDMETHODIMP TextService::OnTestKeyUp(ITfContext*, WPARAM wparam, LPARAM, BOOL* eaten) {
-    *eaten = IsOurFKey(wparam);
+STDMETHODIMP TextService::OnTestKeyUp(ITfContext*, WPARAM wparam, LPARAM lparam, BOOL* eaten) {
+    FKey key;
+    *eaten = IsOurKey(wparam, lparam, &key);
     return S_OK;
 }
 
-STDMETHODIMP TextService::OnKeyDown(ITfContext*, WPARAM wparam, LPARAM, BOOL* eaten) {
-    *eaten = IsOurFKey(wparam);
-    if (*eaten) HandleFKey(wparam, L"OnKeyDown");
+STDMETHODIMP TextService::OnKeyDown(ITfContext*, WPARAM wparam, LPARAM lparam, BOOL* eaten) {
+    FKey key;
+    *eaten = IsOurKey(wparam, lparam, &key);
+    if (*eaten) HandleKey(key, L"OnKeyDown");
     return S_OK;
 }
 
-STDMETHODIMP TextService::OnKeyUp(ITfContext*, WPARAM wparam, LPARAM, BOOL* eaten) {
+STDMETHODIMP TextService::OnKeyUp(ITfContext*, WPARAM wparam, LPARAM lparam, BOOL* eaten) {
     // Eat the key-up too, so the app never sees half a key press.
-    *eaten = IsOurFKey(wparam);
+    FKey key;
+    *eaten = IsOurKey(wparam, lparam, &key);
     return S_OK;
 }
 
@@ -260,18 +290,17 @@ STDMETHODIMP TextService::OnPreservedKey(ITfContext*, REFGUID guid, BOOL* eaten)
     for (UINT i = 0; i < 4; ++i) {
         if (IsEqualGUID(guid, kPreservedKeys[i])) {
             *eaten = TRUE;
-            HandleFKey(VK_F17 + i, L"OnPreservedKey");
+            HandleKey(static_cast<FKey>(i), L"OnPreservedKey");
         }
     }
     return S_OK;
 }
 
-void TextService::HandleFKey(WPARAM vk, const wchar_t* path) {
+void TextService::HandleKey(FKey key, const wchar_t* path) {
     key_down_us_ = log::NowUs();
-    const auto key = static_cast<FKey>(vk - VK_F17);
     const Result result = OnFKey(state_, key, false, policy_);
-    log::Write(L"key F%u via %s tid=%lu mode %s -> %s", static_cast<unsigned>(vk - VK_F17 + 17),
-               path, GetCurrentThreadId(), ModeName(state_.mode), ModeName(result.next.mode));
+    log::Write(L"key %s via %s tid=%lu mode %s -> %s", KeyName(key), path, GetCurrentThreadId(),
+               ModeName(state_.mode), ModeName(result.next.mode));
     state_ = result.next;
     for (const Effect& effect : result.effects) {
         switch (effect.kind) {

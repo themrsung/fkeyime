@@ -34,6 +34,15 @@ Fn1 | F18 | Alt | Win | F19 | Space | F20 | F17 | RAlt | Fn1 | ← | ↓ | →
 | Japanese | **Transient kana ↔ romaji toggle**, forgotten when you leave Japanese |
 | English | **Transient Caps Lock**, turned off by any mode key |
 
+Optional (off by default, `Policy::han_yeong_toggles`, open question 9): the **한/영 key of a
+Korean keyboard** (for example a laptop's built-in one) toggles: **Korean → English, any other
+mode → Korean**, with the same reset rules as the mode keys. It's the only key that isn't
+one-way, which is why it's opt-in. It acts when it arrives as `VK_HANGUL` or as the LANG1 scan
+code (0x72/0xF2). It doesn't act as right Alt (E0 38). The Korean layout maps E0 38 to
+`VK_HANGUL` itself, but under the Japanese layout it's the HHKB's real right Alt *(measured
+with `MapVirtualKeyEx`)*. **[verify]** on a real Korean keyboard which of these it sends under
+each FKeyIDE profile.
+
 Rules carried over from the macOS and AutoHotkey setups:
 
 - **One-way keys.** A mode key pressed in its own mode keeps you there. It never toggles out and
@@ -135,6 +144,10 @@ One TSF TIP (in-proc COM DLL, C++20) with **three language profiles** under one 
 
    Proposed default: **(c)**. English keeps the v1.5.2 behavior users already know, and Korean
    gets JIS through code FKeyIDE needs anyway. The profile GUIDs stay; only EN's LANGID changes.
+
+9. **한/영 key on Korean keyboards** (owner's request, 2026-10-17): implemented as an option,
+   off by default. Turn it on by default? And should a Korean keyboard that sends 한/영 as right
+   Alt be supported (it would need telling that keyboard apart from the HHKB)?
 
 ## 6. M0 results (measured 2026-10-17)
 

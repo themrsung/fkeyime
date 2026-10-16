@@ -58,6 +58,7 @@ Tell the user plainly: **choosing FKeyIDE installs dependencies.** Path A has on
 | English | Japanese with the IME off: JIS symbols, taskbar shows JA | Real en-US profile, taskbar shows EN. Goal JIS symbols; **US symbols as measured in M0** until open question 8 is fixed |
 | Japanese | Microsoft Japanese IME (cloud suggestions, MS user dictionary) | Mozc (offline, different conversion, no MS dictionary) |
 | F17 | 한자 in Korean only | Hanja / transient romaji / transient Caps Lock |
+| 한/영 key (Korean keyboards) | Microsoft Korean IME toggle, while Korean is active | Optional, off by default: Korean → English, otherwise → Korean. Take the default from the release (open question 9) |
 | Consistency | Per-window language, can drift (`issues/windows-inconsistent-symbols.md`); 150 ms wait-and-retry | One global mode, no message posting or retries |
 | Elevated (admin) windows | Doesn't switch (UIPI) | Works |
 | Password fields, UAC, sign-in | Switches the language | F17–F20 do nothing |
@@ -127,6 +128,10 @@ section 5).
 ## Changelog of this guide
 
 One entry per FKeyIDE commit (newest first).
+
+- **Optional 한/영 key.** Added a 한/영 row to the tradeoff table (optional, off by default,
+  untested on a real Korean keyboard). Readiness gate unchanged: not ready. In 04-fkeyide.md,
+  mention the option only if the release ships it.
 
 - **Spike uninstall cleanup.** No change for the 2.0.0 work. Still not ready.
 - **Spec wording fix.** No change for the 2.0.0 work. Note: commit 7652657's message says

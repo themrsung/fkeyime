@@ -12,7 +12,9 @@ namespace fkeyide {
 
 enum class Mode : std::uint8_t { kEnglish, kKorean, kJapanese };
 
-enum class FKey : std::uint8_t { kF17, kF18, kF19, kF20 };
+// F17-F20, plus the 한/영 key of Korean keyboards (VK_HANGUL), which only acts when
+// Policy::han_yeong_toggles is on.
+enum class FKey : std::uint8_t { kF17, kF18, kF19, kF20, kHanYeong };
 
 enum class JapaneseInput : std::uint8_t { kKana, kRomaji };
 
@@ -27,6 +29,10 @@ struct State {
 struct Policy {
     // F20 while already in Japanese resets romaji back to kana (open question 1).
     bool f20_resets_romaji = true;
+    // Optional: the 한/영 key on Korean keyboards (e.g. a laptop's built-in one) toggles:
+    // Korean -> English, any other mode -> Korean. Off by default: it's the one key that isn't
+    // one-way, and the HHKB doesn't have it (open question 9).
+    bool han_yeong_toggles = false;
 };
 
 struct Effect {

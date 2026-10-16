@@ -28,6 +28,7 @@ Korean and Japanese IMEs, started by the `hhkb-ekj-trilingual` logon task.
 | F19 → English | Japanese language with the IME off (taskbar shows JA / A) | FKeyIDE EN (en-US, taskbar shows EN) |
 | F20 → Japanese | Microsoft Japanese IME, kana typing | FKeyIDE JA (Mozc conversion), kana typing |
 | F17 | Korean: 한자. Elsewhere: nothing | Korean: Hanja. Japanese: transient romaji. English: transient Caps Lock |
+| 한/영 key of a Korean keyboard (e.g. a laptop's) | Microsoft Korean IME's own 한/영 toggle, while Korean is active | Optional, off by default: Korean → English, any other mode → Korean (`spec.md`, open question 9). Not tested on a real Korean keyboard yet ⏳ |
 | Symbols in Korean | **US ANSI** (the compromise) | Goal: **JIS**. Measured in M0: the planned layout substitution doesn't work, so FKeyIDE KO (and EN) type **US symbols** for now. A fix is being chosen (spec open question 8) ⏳ |
 | Mode across windows | Per window, so a window can drift back to Korean (`issues/windows-inconsistent-symbols.md`) | One global mode |
 | Elevated (admin) windows | Keys don't switch (UIPI) | Switch works, the TIP loads in-process ⏳ |
@@ -103,6 +104,10 @@ v1.5.2 turned Fn1+P (`Pause`) into Play/Pause with AutoHotkey. FKeyIDE doesn't d
 ## Changelog of this guide
 
 One entry per FKeyIDE commit (newest first).
+
+- **Optional 한/영 key.** New row in "What changes for you": a Korean keyboard's 한/영 key can
+  toggle Korean ↔ English (from Japanese it goes to Korean). Off by default, and not tested on
+  a real Korean keyboard yet. Still nothing to install.
 
 - **Spike uninstall cleanup.** No user-visible change (`tools/spike.ps1` is for development only).
 - **Spec wording fix.** No user-visible change.
