@@ -115,6 +115,11 @@ if ($Uninstall) {
             & "$env:SystemRoot\$regsvr\regsvr32.exe" /s /u "$dest\$arch\fkeyide.dll"
         }
     }
+    # regsvr32 /u leaves the empty TSF category keys and (measured) the 32-bit CLSID key behind.
+    foreach ($key in "HKLM:\SOFTWARE\Microsoft\CTF\TIP\$clsid", "HKLM:\SOFTWARE\Classes\CLSID\$clsid",
+                     "HKLM:\SOFTWARE\WOW6432Node\Classes\CLSID\$clsid") {
+        Remove-Item $key -Recurse -ErrorAction SilentlyContinue
+    }
     Remove-Item $optionsKey -Recurse -ErrorAction SilentlyContinue
     # Processes that loaded the DLL keep it open until they exit; delete what we can.
     Remove-Item $dest -Recurse -Force -ErrorAction SilentlyContinue

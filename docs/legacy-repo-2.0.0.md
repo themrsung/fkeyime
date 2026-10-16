@@ -128,6 +128,7 @@ section 5).
 
 One entry per FKeyIDE commit (newest first).
 
+- **Spike uninstall cleanup.** No change for the 2.0.0 work. Still not ready.
 - **Spec wording fix.** No change for the 2.0.0 work. Note: commit 7652657's message says
   spec section 6 and open question 8 weren't written yet; they were, and are in that commit.
 - **M0 spike, work in progress.** Still not ready. Measured: FKeyIDE KO/EN get US symbols, not

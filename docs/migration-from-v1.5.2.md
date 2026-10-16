@@ -104,6 +104,7 @@ v1.5.2 turned Fn1+P (`Pause`) into Play/Pause with AutoHotkey. FKeyIDE doesn't d
 
 One entry per FKeyIDE commit (newest first).
 
+- **Spike uninstall cleanup.** No user-visible change (`tools/spike.ps1` is for development only).
 - **Spec wording fix.** No user-visible change.
 - **M0 spike, work in progress.** The TIP now registers the three profiles and handles F18–F20
   (development install via `tools/spike.ps1`, not for end users). Measured: Korean and English
