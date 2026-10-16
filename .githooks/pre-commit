@@ -1,0 +1,12 @@
+#!/bin/sh
+# Every commit must update both maintained docs (AGENTS.md, "Rule: every commit updates both
+# maintained docs").
+staged=$(git diff --cached --name-only)
+missing=""
+for f in docs/migration-from-v1.5.2.md docs/legacy-repo-2.0.0.md; do
+    printf '%s\n' "$staged" | grep -qx "$f" || missing="$missing $f"
+done
+if [ -n "$missing" ]; then
+    echo "pre-commit: update and stage these docs in every commit (see AGENTS.md):$missing" >&2
+    exit 1
+fi

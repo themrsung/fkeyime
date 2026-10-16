@@ -1,0 +1,7 @@
+/build/
+/out/
+/.vs/
+*.user
+/third_party/mozc/
+/third_party/*.zip
+bazel-*
