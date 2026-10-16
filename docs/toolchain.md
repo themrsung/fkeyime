@@ -11,7 +11,7 @@ Everything needed to build FKeyIDE on Windows 11 x64. `tools/bootstrap.ps1` chec
 | Ninja | 1.13.2 | CMake generator |
 | Git | Git for Windows | repo, Mozc checkout |
 | Python | 3.12.10 (Mozc needs ≥ 3.12) | Mozc's `update_deps.py` and build scripts |
-| Bazelisk | 1.29.0 | building Mozc |
+| Bazelisk | 1.29.0 (fetches Bazel 9.0.2 for Mozc) | building Mozc |
 | .NET SDK | 8.0.426 (Mozc and WiX need ≥ 6) | WiX; Mozc's .NET tools |
 | WiX Toolset | 5.0.2, repo-local (`.config/dotnet-tools.json`) | the MSI (M5): `dotnet tool run wix` |
 
@@ -41,7 +41,31 @@ tools/fetch-mozc.ps1                  # clone the pinned commit into third_party
 cd third_party/mozc/src
 python build_tools/update_deps.py
 python build_tools/build_qt.py --release --confirm_license
-bazelisk build package --config release_build
+bazelisk --nowindows_enable_symlinks build package --config release_build
 ```
 
-Not run yet. The Qt build alone takes a long time, so budget for it.
+Output: `third_party/mozc/src/bazel-bin/win32/installer/Mozc64.msi` (26.4 MB). It's built for
+testing only. Don't install it next to FKeyIDE: it registers its own ja-JP TIP.
+
+**Measured 2026-10-17** on this PC (i7-1165G7, 4 cores / 8 threads, 16 GB RAM), Mozc 0136c357
+("3.35.6354"):
+
+| Step | Time | Notes |
+| --- | --- | --- |
+| `fetch-mozc.ps1` | 11 s | blobless clone, 201 MB working tree |
+| `update_deps.py` | 11 min | downloads Bazel 9.0.2 (via Bazelisk), LLVM 20.1.1, MSYS2 2025-02-21, Ninja, Qt 6.9.1 sources and the .NET tools; `third_party_cache` is 992 MB |
+| `build_qt.py` | 17 min 43 s | two CMake/Ninja stages (host tools, then target) of about 1,031 steps each, MSVC 19.44 |
+| `bazelisk build package` | 28 min (1,680 s) | 5,115 actions, clang-cl from LLVM 20.1.1, critical path 192 s. About 2,500 compiler warnings, no errors |
+
+Problems hit:
+
+- **Symlinks.** Mozc's `.bazelrc` sets `startup --windows_enable_symlinks`, and Bazel then fails
+  in 25 s with `createSymbolicLinkW failed (permission denied). Either Windows developer mode or
+  admin privileges are required.` Fix without changing the system: the startup flag
+  `--nowindows_enable_symlinks` (in the command above), so Bazel copies instead. It worked.
+  Turning on Developer Mode would also fix it, but that's a system setting, so ask the owner first.
+- **Disk.** Everything stays under `third_party/mozc` and `%USERPROFILE%\_bazel_<user>`
+  (Bazel's output base). Neither is in git. `bazel clean --expunge` frees the output base.
+- Qt (LGPL) is only needed for `mozc_tool` (settings and dictionary GUI). `mozc_server` alone
+  doesn't need it *(inferred from the BUILD files, not built separately yet)*. Option B
+  (`spec.md`, section 6.4) may skip the Qt step.

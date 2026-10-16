@@ -210,6 +210,9 @@ handler (not deferred). QPC timestamps from the shared log, 110 mode-changing pr
 
 ### 6.4 Mozc: Option A vs B
 
+Mozc builds on this PC from the pinned commit in about 57 minutes total (`toolchain.md`, "Mozc").
+It needs one workaround (`--nowindows_enable_symlinks`).
+
 From reading Mozc at the pinned commit:
 
 - Mozc's TIP (`src/win32/tip`, 79 files, about 14k lines) is **ja-JP only**: one profile, LANGID

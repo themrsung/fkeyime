@@ -6,9 +6,9 @@ For people who set up Windows with
 Korean and Japanese IMEs, started by the `hhkb-ekj-trilingual` logon task.
 
 > [!IMPORTANT]
-> **Status at this commit: FKeyIDE can't be installed yet.** The repo has the toolchain, the
-> mode logic (unit-tested) and an empty TIP DLL. There's no IME and no installer. **Keep using
-> v1.5.2.** The steps below describe the planned migration and get updated with every commit.
+> **Status at this commit: FKeyIDE can't be installed yet.** Milestone M0 (spikes) is done. A
+> development TIP switches between its EN/KO/JA profiles with F18/F19/F20, but it doesn't type
+> Korean or Japanese yet, and there's no installer. **Keep using v1.5.2.** The steps below describe the planned migration and get updated with every commit.
 > Steps marked ⏳ depend on milestones that aren't done (`spec.md`, section 4).
 
 ## Who needs to migrate
@@ -30,7 +30,7 @@ Korean and Japanese IMEs, started by the `hhkb-ekj-trilingual` logon task.
 | F17 | Korean: 한자. Elsewhere: nothing | Korean: Hanja. Japanese: transient romaji. English: transient Caps Lock |
 | 한/영 key of a Korean keyboard (e.g. a laptop's) | Microsoft Korean IME's own 한/영 toggle, while Korean is active | Optional, off by default: Korean → English, any other mode → Korean (`spec.md`, open question 9). Not tested on a real Korean keyboard yet ⏳ |
 | Symbols in Korean | **US ANSI** (the compromise) | Goal: **JIS**. Measured in M0: the planned layout substitution doesn't work, so FKeyIDE KO (and EN) type **US symbols** for now. A fix is being chosen (spec open question 8) ⏳ |
-| Mode across windows | Per window, so a window can drift back to Korean (`issues/windows-inconsistent-symbols.md`) | One global mode |
+| Mode across windows | Per window, so a window can drift back to Korean (`issues/windows-inconsistent-symbols.md`) | One global mode. Measured in M0: a switch takes about 5 ms, and every open app follows within about 25 ms (median), with no on-screen popup |
 | Elevated (admin) windows | Keys don't switch (UIPI) | Switch works, the TIP loads in-process ⏳ |
 | Password fields, UAC, sign-in screen | AutoHotkey still switches the language | F17–F20 do nothing there (TIPs aren't loaded) |
 | Fn1+P → Play/Pause | AutoHotkey | Not handled by FKeyIDE. See "Fn1+P" below |
@@ -104,6 +104,12 @@ v1.5.2 turned Fn1+P (`Pause`) into Play/Pause with AutoHotkey. FKeyIDE doesn't d
 ## Changelog of this guide
 
 One entry per FKeyIDE commit (newest first).
+
+- **M0 done.** Status banner updated: M0 finished, still nothing to install. "Mode across
+  windows" now gives the measured switch time (about 5 ms, other apps within about 25 ms, no
+  popup). The fix for the US symbols in Korean and English is still the owner's choice
+  (`spec.md`, open question 8; proposed: English as a Japanese-language profile like v1.5.2,
+  Korean typing JIS symbols itself). Mozc builds on Windows (`toolchain.md`).
 
 - **Optional 한/영 key.** New row in "What changes for you": a Korean keyboard's 한/영 key can
   toggle Korean ↔ English (from Japanese it goes to Korean). Off by default, and not tested on
