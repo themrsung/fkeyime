@@ -128,6 +128,8 @@ section 5).
 
 One entry per FKeyIDE commit (newest first).
 
+- **Spec wording fix.** No change for the 2.0.0 work. Note: commit 7652657's message says
+  spec section 6 and open question 8 weren't written yet; they were, and are in that commit.
 - **M0 spike, work in progress.** Still not ready. Measured: FKeyIDE KO/EN get US symbols, not
   JIS (registered substitute layout ignored), so the readiness gate and the Korean/English rows
   now say so. Measured: v1.5.2's AutoHotkey hook takes F17–F20 from FKeyIDE, so Path B docs

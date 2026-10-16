@@ -202,7 +202,7 @@ From reading Mozc at the pinned commit:
 - Mozc's TIP (`src/win32/tip`, 79 files, about 14k lines) is **ja-JP only**: one profile, LANGID
   0x0411 hardcoded in several places. Its kana input calls the real `ToUnicode` with VK_KANA set,
   so it needs the thread's layout to be Japanese (FKeyIDE JA gets 04110411, so that part works).
-- The TIP ↔ server protocol is simple: a message-mode named pipe `\.\pipe\mozc.<key>.session`
+- The TIP ↔ server protocol is simple: a message-mode named pipe `\\.\pipe\mozc.<key>.session`
   (key from `LocalLow\Mozc\session.ipc`) carrying `commands::Input`/`Output` protobufs. The
   server doesn't authenticate clients. The pipe's DACL already admits AppContainer apps at Low
   integrity. The client checks the server's image path.
@@ -213,9 +213,9 @@ From reading Mozc at the pinned commit:
   into a CMake/MSVC DLL means matching absl/protobuf/CRT by hand.
 
 **Recommendation: Option B.** FKeyIDE's TIP stays the one place for the three modes, F-keys,
-UI and Korean, and speaks the pipe protocol with its own small client (`commands.proto` compiled
-with protobuf in CMake; about 300 lines instead of Mozc's 5.6k-line client closure). Ship a
-`mozc_server` built by Bazel from the pinned commit with a small patch to `base/const.h`
-(own product name, pipe prefix and profile folder), so it can't collide with a real Mozc
-install. Option A would mean un-hardcoding ja-JP across Mozc's TIP, adding Korean and English
+UI and Korean. It speaks the pipe protocol with its own small client: `commands.proto` compiled
+with protobuf in CMake, an estimated few hundred lines *(inferred)* instead of Mozc's 5.6k-line
+client closure. Ship a `mozc_server` built by Bazel from the pinned commit with a small patch to
+`base/const.h` (own product name, pipe prefix and profile folder), so it can't collide with a
+real Mozc install. Option A would mean un-hardcoding ja-JP across Mozc's TIP, adding Korean and English
 into a large foreign codebase, and carrying that fork against upstream.
