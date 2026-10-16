@@ -5,3 +5,4 @@
 /third_party/mozc/
 /third_party/*.zip
 bazel-*
+third_party/*.log

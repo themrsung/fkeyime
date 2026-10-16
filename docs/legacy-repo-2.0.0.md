@@ -21,8 +21,9 @@ don't assume:
 
 - [ ] A tagged FKeyIDE release with a signed MSI (milestone M5).
 - [ ] The M6 soak-test results are published, with failure rates per app.
-- [ ] M0 measured that Korean gets **JIS symbols** under FKeyIDE. If not, the tradeoff table
-      below changes: fix it before release.
+- [ ] Korean gets **JIS symbols** under FKeyIDE. M0 measured that it **doesn't yet**: the
+      registered JIS substitute layout is ignored, so FKeyIDE KO and EN type US symbols. Wait for
+      the fix (spec open question 8), or rewrite the tradeoff table below before release.
 - [ ] `docs/migration-from-v1.5.2.md` in FKeyIDE has no ⏳ steps left.
 - [ ] Open question 7 (Fn1+P → Play/Pause without AutoHotkey) is decided.
 
@@ -53,8 +54,8 @@ Tell the user plainly: **choosing FKeyIDE installs dependencies.** Path A has on
 | | Path A: AutoHotkey (legacy, v1.5.2) | Path B: FKeyIDE |
 | --- | --- | --- |
 | **Dependencies** | AutoHotkey v2 + a script in the docs + a logon task. All user-level, readable | **FKeyIDE MSI**: system-wide in-process COM DLLs (x64 + x86) loaded into every app that takes text input, the bundled **Mozc** conversion engine (`mozc_server`), binaries from a separate BSD-3-Clause repo. Needs admin to install. Updates come from FKeyIDE releases |
-| Korean | Microsoft Korean IME, **US ANSI symbols** (the compromise) | FKeyIDE's own 2-Set, **JIS symbols** ([verify] M0). No 3-Set, no old Hangul |
-| English | Japanese with the IME off: JIS symbols, taskbar shows JA | Real en-US profile with JIS symbols, taskbar shows EN |
+| Korean | Microsoft Korean IME, **US ANSI symbols** (the compromise) | FKeyIDE's own 2-Set. Goal JIS symbols, but **US symbols as measured in M0** until open question 8 is fixed. No 3-Set, no old Hangul |
+| English | Japanese with the IME off: JIS symbols, taskbar shows JA | Real en-US profile, taskbar shows EN. Goal JIS symbols; **US symbols as measured in M0** until open question 8 is fixed |
 | Japanese | Microsoft Japanese IME (cloud suggestions, MS user dictionary) | Mozc (offline, different conversion, no MS dictionary) |
 | F17 | 한자 in Korean only | Hanja / transient romaji / transient Caps Lock |
 | Consistency | Per-window language, can drift (`issues/windows-inconsistent-symbols.md`); 150 ms wait-and-retry | One global mode, no message posting or retries |
@@ -75,7 +76,7 @@ one consistent mode, and accept the dependencies.
 | `README.md` | Windows note: replace the single compromise table with a short "two paths" summary (Path A: AutoHotkey, Path B: FKeyIDE, with the dependency warning). Pin every `v1.5.2` → `v2.0.0` (`git grep -n 'v1\.5\.2'`). In the interactive prompt, Windows bullet: "explain both Windows paths and their tradeoffs (AGENTS.md section 6), say that FKeyIDE installs dependencies, and ask which one I want" |
 | `AGENTS.md` | Title: drop "experimental" only if the owner says so. Add `docs/windows/04-fkeyide.md` to the doc table. Rewrite section 6 (below) |
 | `docs/windows/01-hardware.md` | The Profile 4 table's "Windows meaning" column gets one column per path. F17: "Path A: 한자 in Korean. Path B: Hanja / romaji / Caps Lock". Bluetooth: "AutoHotkey acts on the key" becomes "both paths act on the key, not the device". No keymap change |
-| `docs/windows/02-windows.md` | Mark each step with the path it applies to. Step 2 (languages): Path A unchanged; Path B: FKeyIDE adds its own EN/KO/JA profiles, and removing the Microsoft IMEs from the list is optional. Step 3 (106/109): **both paths**. Path B note: the ko-KR profile substitutes the JIS layout, so the Korean options 1–3 are Path A only. Steps 4–5 (Microsoft IME settings): Path A only. Add Path B: "Let me use a different input method for each app window" = off |
+| `docs/windows/02-windows.md` | Mark each step with the path it applies to. Step 2 (languages): Path A unchanged; Path B: FKeyIDE adds its own EN/KO/JA profiles, and removing the Microsoft IMEs from the list is optional. Step 3 (106/109): **both paths**. Path B note: once FKeyIDE gives Korean the JIS layout (open question 8; not working in M0), the Korean options 1–3 are Path A only. Check the release before writing this. Steps 4–5 (Microsoft IME settings): Path A only. Add Path B: "Let me use a different input method for each app window" = off |
 | `docs/windows/03-autohotkey.md` | Title: "Windows 03 — Path A (legacy): AutoHotkey v2". Add one line pointing to 04 for the alternative. Content unchanged |
 | `docs/windows/04-fkeyide.md` (new) | Path B: what FKeyIDE is, the **dependency list**, install (MSI from the release tag, check the SHA-256), settings, verification (same checks as 01's Bluetooth table plus Korean symbols, F17 in each mode, an elevated app), uninstall and rollback to Path A. For migrating from v1.5.2, link to `docs/migration-from-v1.5.2.md` **at the FKeyIDE tag** instead of copying it |
 | `issues/windows-inconsistent-symbols.md` | "Applies to: Path A". Add: on Path B, Korean uses JIS too and the mode is global, so this shouldn't happen. Confirm with the M6 results before writing it as fact |
@@ -127,5 +128,9 @@ section 5).
 
 One entry per FKeyIDE commit (newest first).
 
+- **M0 spike, work in progress.** Still not ready. Measured: FKeyIDE KO/EN get US symbols, not
+  JIS (registered substitute layout ignored), so the readiness gate and the Korean/English rows
+  now say so. Measured: v1.5.2's AutoHotkey hook takes F17–F20 from FKeyIDE, so Path B docs
+  must have users stop the AutoHotkey task first. The unsigned DLL loads in packaged apps.
 - **Repo setup, toolchain, mode logic.** First version. Readiness gate: not ready (nothing
   installable). The profile GUIDs are fixed from this commit on.

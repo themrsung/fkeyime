@@ -28,7 +28,7 @@ Korean and Japanese IMEs, started by the `hhkb-ekj-trilingual` logon task.
 | F19 → English | Japanese language with the IME off (taskbar shows JA / A) | FKeyIDE EN (en-US, taskbar shows EN) |
 | F20 → Japanese | Microsoft Japanese IME, kana typing | FKeyIDE JA (Mozc conversion), kana typing |
 | F17 | Korean: 한자. Elsewhere: nothing | Korean: Hanja. Japanese: transient romaji. English: transient Caps Lock |
-| Symbols in Korean | **US ANSI** (the compromise) | **JIS**, matching the keycaps ⏳ [verify] in M0 |
+| Symbols in Korean | **US ANSI** (the compromise) | Goal: **JIS**. Measured in M0: the planned layout substitution doesn't work, so FKeyIDE KO (and EN) type **US symbols** for now. A fix is being chosen (spec open question 8) ⏳ |
 | Mode across windows | Per window, so a window can drift back to Korean (`issues/windows-inconsistent-symbols.md`) | One global mode |
 | Elevated (admin) windows | Keys don't switch (UIPI) | Switch works, the TIP loads in-process ⏳ |
 | Password fields, UAC, sign-in screen | AutoHotkey still switches the language | F17–F20 do nothing there (TIPs aren't loaded) |
@@ -61,8 +61,8 @@ Every step changes the system. Do them in order, and keep the backups.
    Copy-Item "$env:USERPROFILE\Documents\AutoHotkey\hhkb-ekj-trilingual.ahk" "$env:USERPROFILE\hhkb-ekj-trilingual.ahk.bak-$stamp"
    ```
 
-2. **Stop AutoHotkey switching** (works today; needed before step 3, because both would act on
-   F17–F20):
+2. **Stop AutoHotkey switching** (works today; needed before step 3. Measured in M0: while the
+   v1.5.2 script runs, its keyboard hook takes F17–F20 and FKeyIDE never sees them):
 
    ```powershell
    Stop-ScheduledTask hhkb-ekj-trilingual
@@ -104,5 +104,9 @@ v1.5.2 turned Fn1+P (`Pause`) into Play/Pause with AutoHotkey. FKeyIDE doesn't d
 
 One entry per FKeyIDE commit (newest first).
 
+- **M0 spike, work in progress.** The TIP now registers the three profiles and handles F18–F20
+  (development install via `tools/spike.ps1`, not for end users). Measured: Korean and English
+  profiles get US symbols, not JIS, so the Korean-symbols row now says so; AutoHotkey must be
+  stopped first because its hook takes the F keys. Still nothing installable.
 - **Repo setup, toolchain, mode logic.** First version. Nothing is installable yet. Steps 1, 2
   and 6 and the rollback are runnable. The others wait on M0–M6.
