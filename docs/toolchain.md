@@ -14,10 +14,13 @@ Everything needed to build FKeyIDE on Windows 11 x64. `tools/bootstrap.ps1` chec
 | Bazelisk | 1.29.0 (fetches Bazel 9.0.2 for Mozc) | building Mozc |
 | .NET SDK | 8.0.426 (Mozc and WiX need ≥ 6) | WiX; Mozc's .NET tools |
 | WiX Toolset | 5.0.2, repo-local (`.config/dotnet-tools.json`) | the MSI (M5): `dotnet tool run wix` |
+| GitHub CLI | 2.102.0 (not logged in; `gh auth login` to use it directly) | the GitHub repo |
 
-Not installed (optional): **ARM64 MSVC + ATL** (only if ARM64 Windows is needed, open question 4;
-add them in the Visual Studio Installer), **GitHub CLI**, **clang-format** (Mozc's
-`update_deps.py` downloads LLVM 20, which includes it).
+Not installed (optional): **ARM64 MSVC + ATL**. ARM64 isn't built, tested or shipped, but it isn't
+blocked either (`spec.md`, section 2, "Builds"). A fork can add it: install "MSVC v143 ARM64/ARM64EC
+build tools" and "C++ ATL … (ARM64/ARM64EC)" in the Visual Studio Installer, then run
+`tools/build.ps1 -Arch arm64` (the `arm64` CMake preset). Also not installed: **clang-format**
+(Mozc's `update_deps.py` downloads LLVM 20, which includes it).
 
 Mozc downloads its own LLVM, MSYS2, Ninja and Qt with `update_deps.py`. They stay inside
 `third_party/mozc` and aren't installed system-wide.

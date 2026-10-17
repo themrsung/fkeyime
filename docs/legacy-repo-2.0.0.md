@@ -13,20 +13,22 @@ targeting, not `main`.
 
 > [!IMPORTANT]
 > **Status at this commit: not ready. Don't release v2.0.0 yet.** FKeyIDE has no installable
-> build. M0 (spikes) is done: profile switching works, but Korean and English don't get JIS
-> symbols yet (see the gate item below). You may prepare the changes on a branch,
-> but don't tag, merge to `main` or push without the owner's OK.
+> build. M0 (spikes) is done and the owner has decided the design (FKeyIDE spec, section 5).
+> Nothing types Korean or Japanese yet. You may prepare the changes on a branch, but don't tag,
+> merge to `main` or push without the owner's OK.
 
 v2.0.0 can ship once **all** of these are true. Check each one against the FKeyIDE release,
 don't assume:
 
 - [ ] A tagged FKeyIDE release with a signed MSI (milestone M5).
 - [ ] The M6 soak-test results are published, with failure rates per app.
-- [ ] Korean gets **JIS symbols** under FKeyIDE. M0 measured that it **doesn't yet**: the
-      registered JIS substitute layout is ignored, so FKeyIDE KO and EN type US symbols. Wait for
-      the fix (spec open question 8), or rewrite the tradeoff table below before release.
+- [ ] Korean and English get **JIS symbols** under FKeyIDE, measured on the release. Decided
+      approach: FKeyIDE types every character from its own JIS table in all modes (M0 showed
+      Windows' layout substitution doesn't work). If the release doesn't deliver it, rewrite the
+      tradeoff table below before release.
 - [ ] `docs/migration-from-v1.5.2.md` in FKeyIDE has no ⏳ steps left.
-- [ ] Open question 7 (Fn1+P → Play/Pause without AutoHotkey) is decided.
+- [ ] The installer wizard behaves as specified (FKeyIDE spec, section 7): keeping the Microsoft
+      IMEs is the default.
 
 ## 1. Why a major version
 
@@ -55,15 +57,17 @@ Tell the user plainly: **choosing FKeyIDE installs dependencies.** Path A has on
 | | Path A: AutoHotkey (legacy, v1.5.2) | Path B: FKeyIDE |
 | --- | --- | --- |
 | **Dependencies** | AutoHotkey v2 + a script in the docs + a logon task. All user-level, readable | **FKeyIDE MSI**: system-wide in-process COM DLLs (x64 + x86) loaded into every app that takes text input, the bundled **Mozc** conversion engine (`mozc_server`), binaries from a separate BSD-3-Clause repo. Needs admin to install. Updates come from FKeyIDE releases |
-| Korean | Microsoft Korean IME, **US ANSI symbols** (the compromise) | FKeyIDE's own 2-Set. Goal JIS symbols, but **US symbols as measured in M0** until open question 8 is fixed. No 3-Set, no old Hangul |
-| English | Japanese with the IME off: JIS symbols, taskbar shows JA | Real en-US profile, taskbar shows EN. Goal JIS symbols; **US symbols as measured in M0** until open question 8 is fixed |
-| Japanese | Microsoft Japanese IME (cloud suggestions, MS user dictionary) | Mozc (offline, different conversion, no MS dictionary). Proposed: FKeyIDE's own TIP plus a bundled, renamed `mozc_server` (Option B, owner to confirm) |
+| Korean | Microsoft Korean IME, **US ANSI symbols** (the compromise), full Hanja | FKeyIDE's own 2-Set, **JIS symbols** from its own table (decided; check the release). Hanja for single syllables only. No 3-Set, no old Hangul |
+| English | Japanese with the IME off: JIS symbols, taskbar shows JA | Real en-US profile, taskbar shows EN, JIS symbols from FKeyIDE's own table. Apps that read raw keys (games, some terminals) still see the Windows layout |
+| Japanese | Microsoft Japanese IME (cloud suggestions, MS user dictionary) | FKeyIDE's own IME and kana table, with a bundled, renamed `mozc_server` for conversion only (Option B, decided): offline, different conversion, no MS dictionary |
 | F17 | 한자 in Korean only | Hanja / transient romaji / transient Caps Lock |
 | Consistency | Per-window language, can drift (`issues/windows-inconsistent-symbols.md`); 150 ms wait-and-retry | One global mode, no message posting or retries. M0 measured about 5 ms per switch, with every app following within about 25 ms (median) |
 | Elevated (admin) windows | Doesn't switch (UIPI) | Works |
 | Password fields, UAC, sign-in | Switches the language | F17–F20 do nothing |
-| Fn1+P → Play/Pause | Yes | Not by FKeyIDE (open question 7) |
-| Removal | Delete the task and the script | Uninstall the MSI; it restores the Microsoft IMEs |
+| Fn1+P → Play/Pause | Yes | **Out of scope** for FKeyIDE (it only handles language input). Path B docs may offer an optional AutoHotkey one-liner for it, without the F-key lines; ask the owner |
+| Microsoft IMEs | Required (they do the typing) | Optional. The installer wizard keeps them by default and suggests removing them on a laptop or with a wired mouse |
+| Removal | Delete the task and the script | Uninstall the MSI; it restores the Microsoft IMEs to the language list |
+| ARM64 PCs | AutoHotkey runs (x64 emulation) | No ARM64 build. Not blocked, so a fork could add one |
 | Maturity | Tested on the owner's PC, USB and Bluetooth | Newer. See the FKeyIDE release's soak-test results |
 
 Recommendation to give: Path A if they want nothing installed system-wide, use Korean mostly for
@@ -77,12 +81,12 @@ one consistent mode, and accept the dependencies.
 | `README.md` | Windows note: replace the single compromise table with a short "two paths" summary (Path A: AutoHotkey, Path B: FKeyIDE, with the dependency warning). Pin every `v1.5.2` → `v2.0.0` (`git grep -n 'v1\.5\.2'`). In the interactive prompt, Windows bullet: "explain both Windows paths and their tradeoffs (AGENTS.md section 6), say that FKeyIDE installs dependencies, and ask which one I want" |
 | `AGENTS.md` | Title: drop "experimental" only if the owner says so. Add `docs/windows/04-fkeyide.md` to the doc table. Rewrite section 6 (below) |
 | `docs/windows/01-hardware.md` | The Profile 4 table's "Windows meaning" column gets one column per path. F17: "Path A: 한자 in Korean. Path B: Hanja / romaji / Caps Lock". Bluetooth: "AutoHotkey acts on the key" becomes "both paths act on the key, not the device". No keymap change |
-| `docs/windows/02-windows.md` | Mark each step with the path it applies to. Step 2 (languages): Path A unchanged; Path B: FKeyIDE adds its own EN/KO/JA profiles, and removing the Microsoft IMEs from the list is optional. Step 3 (106/109): **both paths**. Path B note: once FKeyIDE gives Korean the JIS layout (open question 8; not working in M0), the Korean options 1–3 are Path A only. Check the release before writing this. Steps 4–5 (Microsoft IME settings): Path A only. Add Path B: "Let me use a different input method for each app window" = off |
+| `docs/windows/02-windows.md` | Mark each step with the path it applies to. Step 2 (languages): Path A unchanged; Path B: FKeyIDE adds its own EN/KO/JA profiles, and the installer wizard handles the Microsoft IMEs (kept by default). Step 3 (106/109): **both paths** (Path B keeps it for raw-key apps). Path B note: FKeyIDE types JIS symbols in Korean itself, so the Korean options 1–3 are Path A only. Check the release before writing this. Steps 4–5 (Microsoft IME settings): Path A only. Add Path B: "Let me use a different input method for each app window" = off |
 | `docs/windows/03-autohotkey.md` | Title: "Windows 03 — Path A (legacy): AutoHotkey v2". Add one line pointing to 04 for the alternative. Content unchanged |
 | `docs/windows/04-fkeyide.md` (new) | Path B: what FKeyIDE is, the **dependency list**, install (MSI from the release tag, check the SHA-256), settings, verification (same checks as 01's Bluetooth table plus Korean symbols, F17 in each mode, an elevated app), uninstall and rollback to Path A. For migrating from v1.5.2, link to `docs/migration-from-v1.5.2.md` **at the FKeyIDE tag** instead of copying it |
 | `issues/windows-inconsistent-symbols.md` | "Applies to: Path A". Add: on Path B, Korean uses JIS too and the mode is global, so this shouldn't happen. Confirm with the M6 results before writing it as fact |
 | `issues/README.md` | Update that row. Add an FKeyIDE row if the release lists known issues (e.g. F-keys do nothing in password fields) |
-| `docs/hhkb-studio-setting-all.hks` | No change, unless open question 7 moved Play/Pause into the keymap. Then update it and the Profile 4 screenshots together |
+| `docs/hhkb-studio-setting-all.hks` | No change |
 | `CLAUDE.md`, `LICENSE`, macOS docs | No change |
 
 ### AGENTS.md section 6, new shape
@@ -112,8 +116,8 @@ Copy these from the release you link, not from memory. Fixed values (permanent, 
 | Profile JA (ja-JP) | `0411:{66749D2A-1770-43D3-A269-A051B5BC1AAA}{1AC13F3E-07AC-4B03-A606-967BD48BFD99}` |
 
 Per release (not known yet): release tag, MSI file name(s) and SHA-256, signing certificate
-subject, minimum Windows build, ARM64 availability, the decided open questions (`spec.md`,
-section 5).
+subject, minimum Windows build, and any decisions made after this commit (`spec.md`,
+section 5). ARM64: none (not shipped).
 
 ## 6. Done means
 
@@ -129,17 +133,20 @@ section 5).
 
 One entry per FKeyIDE commit (newest first).
 
+- **Owner's decisions after M0.** Still not ready. The Korean-JIS gate item now names the decided
+  approach (own JIS table in every mode); the Fn1+P gate item is replaced by the wizard default.
+  Tradeoff table: Korean/English/Japanese rows rewritten, Fn1+P out of scope for FKeyIDE, new
+  rows for the Microsoft IMEs (optional, kept by default) and ARM64 (not shipped). 02-windows.md
+  and .hks rows updated.
 - **한/영 key removed.** The optional 한/영 toggle and its tradeoff-table row are gone (owner's
   decision). Don't mention a 한/영 key in 04-fkeyide.md. Readiness gate unchanged: not ready.
 - **M0 done.** Readiness gate: still not ready. The status banner says M0 is finished. The
   Consistency row gives the measured switch time. The Japanese row names the proposed Mozc
   setup (Option B: a bundled, renamed `mozc_server`, so the dependency list in Path B will name
   it). The Korean-JIS gate item is unchanged: it waits on open question 8.
-
 - **Optional 한/영 key.** Added a 한/영 row to the tradeoff table (optional, off by default,
   untested on a real Korean keyboard). Readiness gate unchanged: not ready. In 04-fkeyide.md,
   mention the option only if the release ships it.
-
 - **Spike uninstall cleanup.** No change for the 2.0.0 work. Still not ready.
 - **Spec wording fix.** No change for the 2.0.0 work. Note: commit 7652657's message says
   spec section 6 and open question 8 weren't written yet; they were, and are in that commit.

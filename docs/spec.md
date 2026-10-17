@@ -24,7 +24,7 @@ Fn1 | F18 | Alt | Win | F19 | Space | F20 | F17 | RAlt | Fn1 | ← | ↓ | →
 | Key | Action (from any mode) |
 | --- | --- |
 | **F18** | → **Korean 2-Set** (Hangul composition always on; there is no 영 sub-mode, F19 is English) |
-| **F19** | → **English QWERTY**, passthrough, **JIS symbols** (`Shift+2` = `"`, ろ = `\` / `_`, ¥ = `¥`) |
+| **F19** | → **English QWERTY**, **JIS symbols** (`Shift+2` = `"`, ろ = `\` / `_`, ¥ = `¥`), typed by FKeyIDE from its own key table |
 | **F20** | → **Japanese, kana input** (JIS kana layout), kana-kanji conversion |
 | **F17** | Depends on the mode, below |
 
@@ -44,6 +44,11 @@ Rules carried over from the macOS and AutoHotkey setups:
 
 Implemented and unit-tested in `src/core/mode_machine.*` (`tests/mode_machine_test.cpp`).
 
+**Scope: language input only.** FKeyIDE handles F17–F20 and the text typed in each mode. Other
+custom key bindings that don't handle language input, such as v1.5.2's Fn1+P → Play/Pause, are
+out of scope (owner, 2026-10-17). A Korean keyboard's 한/영 key isn't handled either (an optional
+toggle was tried and removed; only F17–F20 switch modes).
+
 ## 2. Architecture
 
 One TSF TIP (in-proc COM DLL, C++20) with **three language profiles** under one CLSID
@@ -59,25 +64,39 @@ One TSF TIP (in-proc COM DLL, C++20) with **three language profiles** under one 
   with `TF_IPPMF_FORSESSION`). The switch takes about 5 ms, every other app follows within about
   25 ms, and the owner saw no overlay or flash *(measured, section 6)*.
 - **`hklSubstitute` does not give en-US/ko-KR the JIS layout** *(measured, section 6)*. The value
-  is stored in the registry, but Windows keeps each language's own layout. So JIS symbols in
-  English and Korean need one of the approaches in open question 8.
-- OS: the Japanese hardware keyboard (106/109) stays on. The stock EN/KO/JA IMEs are removed from
-  the language list but stay installed as a fallback.
+  is stored in the registry, but Windows keeps each language's own layout.
+- **FKeyIDE is its own IME and doesn't rely on Microsoft code for text** (owner, 2026-10-17;
+  decides open question 8 as option (b)). In **every** mode it maps scan codes to characters
+  with its own JIS table (letters, digits, symbols, ろ, ¥, and the kana table in Japanese) and
+  inserts the text itself. It doesn't depend on which Windows keyboard layout the thread has, and
+  it doesn't use the Microsoft IMEs. Cost: apps that read raw keys instead of text (games,
+  terminals in win32-input mode) still see the Windows layout's keys, not FKeyIDE's.
+- OS: the Japanese hardware keyboard (106/109) is still recommended so raw-key apps and the
+  F-key scan codes behave as in v1.5.2. FKeyIDE's own output doesn't need it **[verify]** in M1.
+  Removing the stock Microsoft IMEs from the language list is **optional**, offered by the
+  installer wizard (section 7). They always stay installed.
 - F-keys: `ITfKeystrokeMgr::PreserveKey` for bare VK_F17–VK_F20 (they arrive in `OnPreservedKey`),
   plus `ITfKeyEventSink`, which eats the key-ups. The app never sees the keys *(measured)*.
 - Composition: `ITfContextComposition`, edit sessions, display attributes, `ITfReconversion`.
 - UI: own candidate window (per-monitor DPI v2) and UI-less mode (`ITfCandidateListUIElement`).
   Mode indicator: EN / 한 / あ / A (romaji) / ⇪ (Caps).
-- **Japanese engine: Mozc** (BSD-3-Clause), pinned in `third_party/mozc.commit`. Option B
-  (recommended after M0, section 6.4): FKeyIDE owns the TIP and UI and talks to `mozc_server`
-  over Mozc's named pipe. Option A: fork Mozc's TIP. The owner decides.
-- **Korean engine:** own 2-Set automaton, fed by scan code, so it doesn't depend on the layout. Hanja from Unicode Unihan (`kHangul`) plus a word
-  dictionary. **[verify]** the license of any Hanja word list; don't link LGPL libhangul.
-- **English:** passthrough. Caps Lock = the real system Caps Lock (`SendInput(VK_CAPITAL)`).
-- **Shared state:** named shared memory + an event (mode, romaji, caps), so the mode is
-  **global** across windows (open question 2).
-- **Builds:** x64 + x86 (32-bit apps load the 32-bit DLL); ARM64 if needed (open question 4).
-  Static CRT, so no VC++ redistributable is needed.
+- **Japanese engine: Mozc** (BSD-3-Clause), pinned in `third_party/mozc.commit`, **Option B**
+  (owner, 2026-10-17): FKeyIDE owns the TIP, the UI and the kana table, and only asks
+  `mozc_server` for kana-kanji conversion over Mozc's named pipe (section 6.4). No fork of Mozc's TIP.
+- **Korean engine:** own 2-Set automaton, fed by scan code, so it doesn't depend on the layout.
+  **Hanja: single syllable only** (owner, 2026-10-17), from Unicode Unihan (`kHangul`). No word
+  dictionary in v1. Don't link LGPL libhangul.
+- **English:** FKeyIDE's own JIS table, like the other modes. Caps Lock = the real system Caps
+  Lock (`SendInput(VK_CAPITAL)`), so the LED matches.
+- **Global mode** (owner, 2026-10-17): one mode for all windows. `ActivateProfile` with
+  `TF_IPPMF_FORSESSION` already switches every TSF thread *(measured, section 6.3)*. A small named
+  shared-memory block still carries the romaji flag, so every process agrees on it.
+- **Builds:** x64 + x86 (32-bit apps load the 32-bit DLL). Static CRT, so no VC++
+  redistributable is needed. **ARM64: not built, not tested, not shipped, but not blocked**
+  (owner, 2026-10-17), so advanced users can fork and add it. Keep the code free of x86/x64-only
+  assumptions (no inline asm, no hardcoded `x64` paths, pointer-size-agnostic structs).
+  `CMakePresets.json` has an `arm64` preset and `tools/dev.ps1 -Arch arm64` works once the ARM64
+  MSVC tools are installed (`toolchain.md`). Mozc supports `--platforms=//:windows-arm64`.
 
 ## 3. Known limits
 
@@ -91,57 +110,50 @@ One TSF TIP (in-proc COM DLL, C++20) with **three language profiles** under one 
   keyboard hook gets F17–F20 first: v1.5.2's AutoHotkey script took them all until it was
   stopped *(measured)*. The MSI must make sure AutoHotkey switching is off.
 - Compared with the Microsoft IMEs: no cloud suggestions, no Microsoft user dictionary, different
-  (Mozc) conversion quality, no Korean 3-Set or old Hangul in v1.
+  (Mozc) conversion quality, no Korean 3-Set or old Hangul, and Hanja for single syllables only, in v1.
 
 ## 4. Milestones
 
 | | Milestone | Size | Status |
 | --- | --- | --- | --- |
 | — | Repo, toolchain, mode logic + tests, DLL skeleton | S | **done** |
-| M0 | Spikes: build Mozc; 3 profiles + JIS substitute; F-key delivery per app; decide A/B | S–M | **done** (section 6); A/B and question 8 wait on the owner |
-| M1 | Skeleton + English: profiles, F-key routing, shared state, Caps Lock, indicator | S | not started |
-| M2 | Korean: 2-Set automaton + tests, display attributes, Hanja | M | not started |
-| M3 | Japanese: Mozc, kana preedit, conversion, romaji toggle | L | not started |
-| M4 | UI-less candidates, DPI, dark mode, Store apps, x86/ARM64 | M | not started |
-| M5 | WiX MSI, language-list setup, uninstall restores the stock IMEs, signing | S–M | not started |
+| M0 | Spikes: build Mozc; 3 profiles + JIS substitute; F-key delivery per app; decide A/B | S–M | **done** (section 6); decisions in section 5 |
+| M1 | Skeleton + English: profiles, F-key routing, shared state, own JIS key table, Caps Lock, indicator | S | not started |
+| M2 | Korean: 2-Set automaton + tests, display attributes, single-syllable Hanja | M | not started |
+| M3 | Japanese: own kana table, `mozc_server` client (Option B), conversion, romaji toggle | L | not started |
+| M4 | UI-less candidates, DPI, dark mode, Store apps, x86 (ARM64 stays unbuilt) | M | not started |
+| M5 | WiX MSI, install wizard (section 7), language-list setup, uninstall restores the stock IMEs, signing | S–M | not started |
 | M6 | Soak tests (hundreds of switches per key, per app), app matrix, docs | M | not started |
 
-## 5. Open questions for the owner
+## 5. Decisions and open questions
 
-1. F20 while already in Japanese resets romaji → kana? (implemented as yes, `Policy::f20_resets_romaji`)
-2. Global mode across all windows (proposed), or per window?
-3. Hanja: syllable-level only for v1, or a word dictionary from the start?
-4. Is ARM64 Windows needed?
+Decided by the owner (2026-10-17):
+
+| # | Question | Decision |
+| --- | --- | --- |
+| 2 | Global or per-window mode | **Global** |
+| 3 | Hanja scope in v1 | **Single syllable only** |
+| 4 | ARM64 | **Not built or shipped, but not blocked** (section 2, "Builds") |
+| 6 | Remove the stock Microsoft IMEs from the language list | **Optional**, through the installer wizard; keeping them is the default (section 7) |
+| 7 | Fn1+P → Play/Pause and other non-language key bindings | **Out of scope** (section 1, "Scope") |
+| 8 | JIS symbols in English and Korean | **(b): FKeyIDE's own key table in every mode**, no Microsoft layout or IME code for text |
+| A/B | Japanese engine | **Option B**: own TIP, `mozc_server` for conversion only |
+| 9 | 한/영 key toggle | **Removed** for now (reverted in 876010c) |
+
+Still open (the implemented default stands until the owner says otherwise):
+
+1. F20 while already in Japanese resets romaji → kana? (implemented: yes, `Policy::f20_resets_romaji`)
 5. Shift/Ctrl + F17–F20: unused (implemented), or extra functions?
-6. OK to remove the stock Microsoft IMEs from the language list once FKeyIDE is stable?
-7. In v1.5.2, AutoHotkey turned Fn1+P (Pause) into Play/Pause. A TIP only sees keys while a text
-   field has focus, so it can't take this over. Options: assign Play/Pause to Fn1+P in the
-   keymap tool **[verify]** that it offers this, or keep a tiny helper.
-8. **JIS symbols in English and Korean** (new from M0, section 6.2). Windows ignores the JIS
-   substitute layout, so EN and KO get US symbols. Options:
-   - **(a) One ja-JP profile for all three modes** (the old fallback). JIS everywhere with no
-     extra code, and no profile switching at all. Costs: the taskbar language always says JA
-     (FKeyIDE's own mode icon shows EN / 한 / あ), and apps see Korean text typed with a Japanese
-     input language (spell-check language, font choice for Hanja in some apps).
-   - **(b) Keep EN/KO/JA, and FKeyIDE types the JIS symbols itself** from a scan-code table: KO
-     handles every key anyway, so this is cheap there. In EN, the symbol keys stop being plain
-     passthrough: apps that read raw keys (games, terminals in win32-input mode) still see the
-     US layout.
-   - **(c) Hybrid:** EN is a ja-JP profile (native JIS passthrough, exactly like v1.5.2's
-     English), KO is ko-KR with (b)'s table, JA is ja-JP. The taskbar shows JA for English, as in
-     v1.5.2.
-   - **(d) `LayerDriver KOR = kbd106.dll`** (v1.5.2 option 2), system-wide, untested. Doesn't
-     cover en-US.
-
-   Proposed default: **(c)**. English keeps the v1.5.2 behavior users already know, and Korean
-   gets JIS through code FKeyIDE needs anyway. The profile GUIDs stay; only EN's LANGID changes.
+10. Installer wizard: does the HHKB Studio's own pointing stick count as a "wired mouse" when the
+    HHKB is on USB? Proposed: no. Devices with vendor ID `04FE` (PFU) are listed but don't
+    trigger the suggestion.
 
 ## 6. M0 results (measured 2026-10-17)
 
 Setup: Windows 11 Pro 25H2 build 26200, i7-1165G7, HHKB Studio JIS on USB, Profile 4, Japanese
 106/109 hardware layout. Spike TIP from this repo's `src/tip` (Release, unsigned), installed with
 `tools/spike.ps1` (x64 + x86, in `C:\Program Files\FKeyIDE-spike`), stock Microsoft IMEs still
-in the list. Raw log: `%ProgramData%keyidekeyide.log`. Probe: `tools/spike/probe.cpp`.
+in the list. Raw log: `%ProgramData%\fkeyide\fkeyide.log`. Probe: `tools/spike/probe.cpp`.
 
 ### 6.1 F-key delivery per app
 
@@ -176,7 +188,7 @@ code into the probe's Edit control. Keys: Shift+2, ろ, Shift+ろ, ¥, `@` key, 
 
 – = no character. The ¥ key gives U+005C under `kbd106`, which Japanese fonts draw as ¥; that's
 the same as v1.5.2's English. The registry has `SubstituteLayout = 0x04110411` for all three
-profiles, and it has no effect. See open question 8.
+profiles, and it has no effect. Resolved by decision 8 (b) in section 5: FKeyIDE types every character from its own table.
 
 ### 6.3 Switch latency and global mode
 
@@ -222,3 +234,28 @@ client closure. Ship a `mozc_server` built by Bazel from the pinned commit with 
 `base/const.h` (own product name, pipe prefix and profile folder), so it can't collide with a
 real Mozc install. Option A would mean un-hardcoding ja-JP across Mozc's TIP, adding Korean and English
 into a large foreign codebase, and carrying that fork against upstream.
+
+## 7. Installer wizard (M5)
+
+Requirements from the owner (2026-10-17):
+
+1. **List every keyboard and mouse, and system info.** Keyboards and pointing devices with name,
+   connection (USB, Bluetooth, built-in/PS/2) and VID:PID; Windows edition and build, CPU
+   architecture, PC model, and chassis type (laptop or desktop). Read-only, on its own page.
+   Nothing leaves the PC.
+2. **If the PC is a laptop or a wired mouse is connected, suggest removing the Microsoft IMEs**
+   from the language list. The page explains why and shows the option, **not selected**.
+   Selecting it is one click.
+3. **Otherwise, removing them takes two clicks:** one to start ("Remove the Microsoft IMEs…")
+   and one to confirm, in a dialog whose default button is "Keep".
+4. **Keeping the Microsoft IMEs is always the default.** Clicking Next through the whole wizard
+   never removes them.
+
+Removal only takes them out of the language list. They stay installed, and uninstalling FKeyIDE
+puts them back.
+
+Detection *(inferred, to check in M5)*: laptop = `Win32_SystemEnclosure.ChassisTypes` in
+{8, 9, 10, 14, 30, 31, 32}, or a battery (`Win32_Battery`). Wired mouse = a present pointing
+device whose instance path isn't Bluetooth (`BTHENUM` / `BTHLE`), excluding PFU `04FE` devices
+(open question 10). The implementation (WiX custom dialog + custom action, or a Burn
+bootstrapper with its own UI) is decided in M5.

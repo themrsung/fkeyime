@@ -32,6 +32,9 @@ Every commit must update **both** `docs/migration-from-v1.5.2.md` and `docs/lega
 
 - Never change the GUIDs in `src/tip/guids.h`: they're in users' registries and language lists.
 - Keep `src/core/` free of Windows headers, so its tests run anywhere.
+- ARM64 isn't built or shipped, but don't block it: no inline asm, no hardcoded `x64`/`x86`
+  paths or pointer sizes. Forks add ARM64 with the `arm64` preset (`docs/toolchain.md`).
+- Scope is language input only (`docs/spec.md`, section 1). Don't add other key bindings.
 - The spec follows the owner's decisions. Open questions stay open until the owner answers;
   implement the proposed default and make it easy to change (`Policy`).
 - Ask before installing system-wide software, registering the TIP, or changing language or

@@ -8,7 +8,8 @@ Korean and Japanese IMEs, started by the `hhkb-ekj-trilingual` logon task.
 > [!IMPORTANT]
 > **Status at this commit: FKeyIDE can't be installed yet.** Milestone M0 (spikes) is done. A
 > development TIP switches between its EN/KO/JA profiles with F18/F19/F20, but it doesn't type
-> Korean or Japanese yet, and there's no installer. **Keep using v1.5.2.** The steps below describe the planned migration and get updated with every commit.
+> Korean or Japanese yet, and there's no installer. **Keep using v1.5.2.** The steps below
+> describe the planned migration and get updated with every commit.
 > Steps marked ⏳ depend on milestones that aren't done (`spec.md`, section 4).
 
 ## Who needs to migrate
@@ -25,16 +26,18 @@ Korean and Japanese IMEs, started by the `hhkb-ekj-trilingual` logon task.
 | | v1.5.2 (AutoHotkey) | FKeyIDE |
 | --- | --- | --- |
 | F18 → Korean | Microsoft Korean IME, 한 mode | FKeyIDE KO (own 2-Set engine) |
-| F19 → English | Japanese language with the IME off (taskbar shows JA / A) | FKeyIDE EN (en-US, taskbar shows EN) |
-| F20 → Japanese | Microsoft Japanese IME, kana typing | FKeyIDE JA (Mozc conversion), kana typing |
-| F17 | Korean: 한자. Elsewhere: nothing | Korean: Hanja. Japanese: transient romaji. English: transient Caps Lock |
-| Symbols in Korean | **US ANSI** (the compromise) | Goal: **JIS**. Measured in M0: the planned layout substitution doesn't work, so FKeyIDE KO (and EN) type **US symbols** for now. A fix is being chosen (spec open question 8) ⏳ |
+| F19 → English | Japanese language with the IME off (taskbar shows JA / A) | FKeyIDE EN (en-US, taskbar shows EN), JIS symbols from FKeyIDE's own key table ⏳ |
+| F20 → Japanese | Microsoft Japanese IME, kana typing | FKeyIDE JA: its own kana table, Mozc only for kana-kanji conversion ⏳ |
+| F17 | Korean: 한자 (Microsoft's, words and syllables) | Korean: Hanja for **single syllables only**. Japanese: transient romaji. English: transient Caps Lock |
+| Symbols in Korean | **US ANSI** (the compromise) | **JIS**, matching the keycaps. FKeyIDE types every character itself from its own table in all three modes (owner's decision after M0 showed Windows' layout substitution doesn't work). Not built yet ⏳ |
 | Mode across windows | Per window, so a window can drift back to Korean (`issues/windows-inconsistent-symbols.md`) | One global mode. Measured in M0: a switch takes about 5 ms, and every open app follows within about 25 ms (median), with no on-screen popup |
 | Elevated (admin) windows | Keys don't switch (UIPI) | Switch works, the TIP loads in-process ⏳ |
 | Password fields, UAC, sign-in screen | AutoHotkey still switches the language | F17–F20 do nothing there (TIPs aren't loaded) |
-| Fn1+P → Play/Pause | AutoHotkey | Not handled by FKeyIDE. See "Fn1+P" below |
+| Fn1+P → Play/Pause | AutoHotkey | **Out of scope**: FKeyIDE only handles language input. See "Fn1+P" below |
 | Japanese conversion | Microsoft (cloud suggestions, your MS user dictionary) | Mozc (offline, different results). Your MS dictionary doesn't carry over |
 | Korean extras | Full Microsoft Korean IME (3-Set, old Hangul, …) | 2-Set only in v1 |
+| Raw-key apps (games, some terminals) | JIS keys in English and Japanese | They read keys, not text, so they see the Windows layout, not FKeyIDE's table |
+| A Korean keyboard's 한/영 key | Toggles inside the Microsoft Korean IME | Not handled. Only F17–F20 switch modes |
 
 **FKeyIDE adds dependencies** that v1.5.2 doesn't have: an MSI that installs system-wide COM DLLs
 (x64 + x86) and needs admin rights, the bundled Mozc conversion engine (`mozc_server`), and binaries
@@ -44,7 +47,8 @@ built from this separate BSD-3-Clause repo instead of a script you can read in t
 
 - **The keyboard.** DIP switches all OFF, keymap **Profile 4**. No change in the keymap tool.
 - **Japanese keyboard (106/109) as the hardware layout** (v1.5.2 `docs/windows/02-windows.md`,
-  step 3). FKeyIDE relies on it for the JIS symbols. Don't switch to "Detect connected keyboard".
+  step 3). Keep it: FKeyIDE types its own JIS characters, but apps that read raw keys still use
+  the Windows layout. Don't switch to "Detect connected keyboard".
 - **The one-way key rules**: a mode key never toggles out and is never dead.
 
 ## Steps
@@ -75,10 +79,14 @@ Every step changes the system. Do them in order, and keep the backups.
 
 3. ⏳ **Install FKeyIDE** (M5): run `fkeyide-<version>-x64.msi` from a FKeyIDE release. It
    installs both the x64 and x86 DLLs and adds **FKeyIDE EN / KO / JA** to your language list.
+   The wizard first lists your keyboards, mice and PC info (nothing is sent anywhere). There's
+   no ARM64 build.
 
-4. ⏳ **Language list** (M5): the installer offers to remove the Microsoft Korean and Japanese IMEs
-   from the list (they stay installed). Accept it, or remove them later in Settings → Time &
-   language → Language & region. Turn **off** "Let me use a different input method for each app
+4. ⏳ **Microsoft IMEs** (M5): removing them from the language list is optional, and **keeping
+   them is the default**: clicking Next through the wizard keeps them. On a laptop, or with a
+   wired mouse connected, the wizard suggests removing them and it's one click to accept.
+   Otherwise it's two clicks (start, then confirm). They stay installed either way, and you can
+   remove them later in Settings → Time & language → Language & region. Turn **off** "Let me use a different input method for each app
    window" (Settings → Time & language → Typing → Advanced keyboard settings).
 
 5. ⏳ **Verify** (M6): sign out and back in, then check F18 → `안녕하세요`, F19 → `the"` with
@@ -89,9 +97,10 @@ Every step changes the system. Do them in order, and keep the backups.
 
 ### Fn1+P (Play/Pause)
 
-v1.5.2 turned Fn1+P (`Pause`) into Play/Pause with AutoHotkey. FKeyIDE doesn't do this
-(open question 7 in `spec.md`). Until that's decided, either keep a one-line AutoHotkey script
-(`Pause::Send("{Media_Play_Pause}")`) on the same logon task, or live without it.
+v1.5.2 turned Fn1+P (`Pause`) into Play/Pause with AutoHotkey. FKeyIDE won't do this: key
+bindings that aren't language input are out of its scope. If you want it, keep a one-line
+AutoHotkey script (`Pause::Send("{Media_Play_Pause}")`) on its own logon task, without the
+F-key lines (those would take F17–F20 away from FKeyIDE), or use another tool you trust.
 
 ## Rolling back to v1.5.2
 
@@ -104,6 +113,11 @@ v1.5.2 turned Fn1+P (`Pause`) into Play/Pause with AutoHotkey. FKeyIDE doesn't d
 
 One entry per FKeyIDE commit (newest first).
 
+- **Owner's decisions after M0.** FKeyIDE types every character from its own JIS table in all
+  three modes, so Korean gets JIS symbols (rows updated). Global mode, Hanja for single
+  syllables, no ARM64 build. Removing the Microsoft IMEs is optional and keeping them is the
+  wizard's default (step 4). Fn1+P and other non-language bindings are out of scope (rewritten
+  section). New rows: raw-key apps, the 한/영 key. Still nothing to install.
 - **한/영 key removed.** The optional Korean ↔ English toggle for a Korean keyboard's 한/영 key is
   gone again (owner's decision): only F17–F20 switch modes. Still nothing to install.
 - **M0 done.** Status banner updated: M0 finished, still nothing to install. "Mode across
@@ -111,11 +125,9 @@ One entry per FKeyIDE commit (newest first).
   popup). The fix for the US symbols in Korean and English is still the owner's choice
   (`spec.md`, open question 8; proposed: English as a Japanese-language profile like v1.5.2,
   Korean typing JIS symbols itself). Mozc builds on Windows (`toolchain.md`).
-
 - **Optional 한/영 key.** New row in "What changes for you": a Korean keyboard's 한/영 key can
   toggle Korean ↔ English (from Japanese it goes to Korean). Off by default, and not tested on
   a real Korean keyboard yet. Still nothing to install.
-
 - **Spike uninstall cleanup.** No user-visible change (`tools/spike.ps1` is for development only).
 - **Spec wording fix.** No user-visible change.
 - **M0 spike, work in progress.** The TIP now registers the three profiles and handles F18–F20
