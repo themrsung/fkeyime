@@ -12,7 +12,8 @@ namespace fkeyime {
 
 enum class Mode : std::uint8_t { kEnglish, kKorean, kJapanese };
 
-enum class FKey : std::uint8_t { kF17, kF18, kF19, kF20 };
+// F16 was added after F17-F20, so it comes last.
+enum class FKey : std::uint8_t { kF17, kF18, kF19, kF20, kF16 };
 
 enum class JapaneseInput : std::uint8_t { kKana, kRomaji };
 
@@ -25,8 +26,9 @@ struct State {
 
 // Owner decisions that are still open (build plan, section 6). Defaults are the proposals.
 struct Policy {
-    // F20 while already in Japanese resets romaji back to kana (open question 1).
-    bool f20_resets_romaji = true;
+    // A Japanese key pressed while already in Japanese re-applies its input: F20 resets to kana,
+    // F16 to romaji (open question 1). When false, it keeps the current input.
+    bool japanese_key_resets_input = true;
 };
 
 struct Effect {

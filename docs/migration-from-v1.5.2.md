@@ -28,7 +28,8 @@ Korean and Japanese IMEs, started by the `hhkb-ekj-trilingual` logon task.
 | F18 → Korean | Microsoft Korean IME, 한 mode | FKeyIME KO (own 2-Set engine) |
 | F19 → English | Japanese language with the IME off (taskbar shows JA / A) | FKeyIME EN (en-US, taskbar shows EN), JIS symbols from FKeyIME's own key table ⏳ |
 | F20 → Japanese | Microsoft Japanese IME, kana typing | FKeyIME JA: its own kana table, Mozc only for kana-kanji conversion ⏳ |
-| F17 | Korean: 한자 (Microsoft's, words and syllables) | Korean: Hanja for **single syllables only**. Japanese: transient romaji. English: transient Caps Lock |
+| F17 | Korean: 한자 (Microsoft's, words and syllables) | Korean: Hanja for **single syllables only**. Japanese: transient switch to the other input (romaji after F20, kana after F16). English: transient Caps Lock |
+| F16 | Not used | **New:** Japanese with romaji input. Needs a key set to F16 in the keymap tool; which key isn't decided yet (FKeyIME spec, open question 11) |
 | Symbols in Korean | **US ANSI** (the compromise) | **JIS**, matching the keycaps. FKeyIME types every character itself from its own table in all three modes (owner's decision after M0 showed Windows' layout substitution doesn't work). Not built yet ⏳ |
 | Mode across windows | Per window, so a window can drift back to Korean (`issues/windows-inconsistent-symbols.md`) | One global mode. Measured in M0: a switch takes about 5 ms, and every open app follows within about 25 ms (median), with no on-screen popup |
 | Elevated (admin) windows | Keys don't switch (UIPI) | Switch works, the TIP loads in-process ⏳ |
@@ -65,8 +66,19 @@ Every step changes the system. Do them in order, and keep the backups.
    Copy-Item "$env:USERPROFILE\Documents\AutoHotkey\hhkb-ekj-trilingual.ahk" "$env:USERPROFILE\hhkb-ekj-trilingual.ahk.bak-$stamp"
    ```
 
-2. **Stop AutoHotkey switching** (works today; needed before step 3. Measured in M0: while the
-   v1.5.2 script runs, its keyboard hook takes F17–F20 and FKeyIME never sees them):
+2. **AutoHotkey: make it step aside, or stop it.** While the v1.5.2 script runs, its keyboard
+   hook takes F17–F20 and FKeyIME never sees them *(measured in M0)*. Pick one:
+
+   **a. Keep AutoHotkey, FKeyIME-aware** (works today; lets you try FKeyIME and go back with
+   Win+Space). Replace your script with
+   [`examples/autohotkey/hhkb-ekj-trilingual.ahk`](../examples/autohotkey/hhkb-ekj-trilingual.ahk)
+   from this repo (your backup from step 1 stays), then restart it:
+   `Stop-ScheduledTask hhkb-ekj-trilingual; Start-ScheduledTask hhkb-ekj-trilingual`. While
+   FKeyIME is the input method of the window you type in, the script lets F16–F20 through to
+   FKeyIME. With a Microsoft IME, it works exactly as in v1.5.2 (`api.md`, measured over 50
+   rounds: every key went to the right one). Without FKeyIME installed, it's the v1.5.2 script.
+
+   **b. Stop AutoHotkey switching** (works today; for FKeyIME only):
 
    ```powershell
    Stop-ScheduledTask hhkb-ekj-trilingual
@@ -113,6 +125,10 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **API and F16.** Step 2 now offers keeping AutoHotkey with an FKeyIME-aware script
+  (`examples/autohotkey/`, works today, measured) instead of only stopping it. New F16 row:
+  Japanese with romaji input, and F17 in Japanese switches to the other input. Still nothing
+  to install.
 - **Spike install fix.** `tools/spike.ps1 -Install` now really adds the three FKeyIME profiles to
   the language list. Development only; no user-visible change. Still nothing to install.
 - **Renamed to FKeyIME** (was FKeyIDE; repo `themrsung/fkeyime`, old URL redirects). Only the

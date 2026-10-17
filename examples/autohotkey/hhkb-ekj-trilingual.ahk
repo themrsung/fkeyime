@@ -1,0 +1,124 @@
+#Requires AutoHotkey v2.0
+#SingleInstance Force
+; hhkb-ekj-trilingual (Windows): one-way language keys sent by the HHKB Studio, keymap Profile 4.
+;   F18 -> Korean (한)   F19 -> English (Japanese IME off)   F20 -> Japanese hiragana, kana typing
+;   F17 -> 한자 in Korean, nothing elsewhere   Pause (Fn1+P) -> Media Play/Pause
+; FKeyIME-aware: while FKeyIME is the input method of the focused window, F17-F20 are left alone
+; and pass straight through to it (FKeyIME API v1, https://github.com/themrsung/fkeyime docs/api.md).
+; Without FKeyIME installed, this behaves exactly like the hhkb-ekj-trilingual v1.5.2 script.
+
+HKL_KO := 0x04120412, LANG_KO := 0x0412
+HKL_JA := 0x04110411, LANG_JA := 0x0411
+
+; IME conversion-mode bits (imm.h)
+CM_NATIVE := 0x01, CM_KATAKANA := 0x02, CM_FULLSHAPE := 0x08, CM_ROMAN := 0x10
+
+; Targets: language, IME open status, conversion mode to set, and the bits that must match.
+KOREAN   := {hkl: HKL_KO, lang: LANG_KO, open: 1, cmode: CM_NATIVE, mask: CM_NATIVE}
+ENGLISH  := {hkl: HKL_JA, lang: LANG_JA, open: 0}
+JAPANESE := {hkl: HKL_JA, lang: LANG_JA, open: 1, cmode: CM_NATIVE | CM_FULLSHAPE
+           , mask: CM_NATIVE | CM_KATAKANA | CM_FULLSHAPE | CM_ROMAN}
+
+FKEYIME_CLSID := "{66749D2A-1770-43D3-A269-A051B5BC1AAA}"
+; The Microsoft IMEs these targets mean (language, CLSID, profile), for UseMicrosoftIme().
+KOREAN.tip   := [LANG_KO, "{A028AE76-01B1-46C2-99C4-ACD9858AE02F}", "{B5FE1F02-D5F2-4445-9C03-C568F23C99A1}"]
+ENGLISH.tip  := [LANG_JA, "{03B5835F-F03C-411B-9CE2-AA23E1171E36}", "{A76C93D9-5523-4E90-AAFA-4DB112F9AC76}"]
+JAPANESE.tip := ENGLISH.tip
+
+#HotIf !FKeyImeActive()
+F18::SwitchTo(KOREAN)
+F19::SwitchTo(ENGLISH)
+F20::SwitchTo(JAPANESE)
+F17::ContextAction()
+#HotIf
+Pause::Send("{Media_Play_Pause}")
+
+; True while FKeyIME is the input method of the focused window. The DLL is found through FKeyIME's
+; permanent CLSID (32-bit AutoHotkey gets the x86 DLL through registry redirection) and loaded
+; only for the call, so it never stays locked.
+FKeyImeActive() {
+    try dll := RegRead("HKLM\SOFTWARE\Classes\CLSID\" FKEYIME_CLSID "\InprocServer32")
+    catch
+        return false                            ; FKeyIME isn't installed
+    try return DllCall(dll "\FKeyImeQueryWindow", "ptr", FocusHwnd(), "int") >= 0
+    catch
+        return false                            ; DLL missing or without the API: act as before
+}
+
+; A language change picks that language's last-used input method, which can be FKeyIME's. Select
+; the Microsoft IME explicitly instead (ITfInputProcessorProfileMgr::ActivateProfile, whole session).
+UseMicrosoftIme(t) {
+    clsid := Buffer(16), profile := Buffer(16)
+    DllCall("ole32\CLSIDFromString", "str", t.tip[2], "ptr", clsid)
+    DllCall("ole32\CLSIDFromString", "str", t.tip[3], "ptr", profile)
+    mgr := ComObject("{33C53A50-F456-4884-B049-85FD643ECFED}", "{71C6E74C-0F28-11D8-A82A-00065B84435C}")
+    ; ActivateProfile(TF_PROFILETYPE_INPUTPROCESSOR, langid, clsid, profile, hkl, TF_IPPMF_FORSESSION)
+    try ComCall(3, mgr, "uint", 1, "ushort", t.tip[1], "ptr", clsid, "ptr", profile, "ptr", 0
+              , "uint", 0x20000000)
+}
+
+SwitchTo(t) {
+    hwnd := FocusHwnd()
+    if !hwnd
+        return
+    ; Always apply, even if t already looks active: a stale state must not leave the key dead.
+    Apply(hwnd, t)
+    ; Verify once, and retry only if the switch didn't take.
+    SetTimer(() => (IsAt(hwnd, t) || Apply(hwnd, t)), -150)
+}
+
+Apply(hwnd, t) {
+    DllCall("PostMessageW", "ptr", hwnd, "uint", 0x50, "ptr", 0, "ptr", t.hkl)  ; WM_INPUTLANGCHANGEREQUEST
+    deadline := A_TickCount + 150
+    while LangOf(hwnd) != t.lang && A_TickCount < deadline
+        Sleep(10)
+    if FKeyImeActive() {                        ; landed in FKeyIME's profile for this language
+        UseMicrosoftIme(t)
+        deadline := A_TickCount + 150
+        while FKeyImeActive() && A_TickCount < deadline
+            Sleep(10)
+    }
+    ImeCtl(hwnd, 0x006, t.open)                 ; IMC_SETOPENSTATUS
+    if t.open
+        ImeCtl(hwnd, 0x002, t.cmode)            ; IMC_SETCONVERSIONMODE
+}
+
+IsAt(hwnd, t) {
+    if FKeyImeActive() || LangOf(hwnd) != t.lang || ImeCtl(hwnd, 0x005) != t.open   ; IMC_GETOPENSTATUS
+        return false
+    return !t.open || (ImeCtl(hwnd, 0x001) & t.mask) = t.cmode    ; IMC_GETCONVERSIONMODE
+}
+
+ContextAction() {
+    hwnd := FocusHwnd()
+    if hwnd && LangOf(hwnd) = LANG_KO
+        Send("{vk19}")                          ; VK_HANJA: Korean IME's 한자 conversion
+    ; Other languages: nothing yet.
+}
+
+; The window that has keyboard focus (a child control, if the app uses them).
+FocusHwnd() {
+    if !(active := WinExist("A"))
+        return 0
+    tid := DllCall("GetWindowThreadProcessId", "ptr", active, "ptr", 0, "uint")
+    gti := Buffer(A_PtrSize = 8 ? 72 : 48, 0)   ; GUITHREADINFO
+    NumPut("uint", gti.Size, gti, 0)
+    if DllCall("GetGUIThreadInfo", "uint", tid, "ptr", gti)
+        && (focus := NumGet(gti, A_PtrSize = 8 ? 16 : 12, "ptr"))
+        return focus
+    return active
+}
+
+LangOf(hwnd) {
+    tid := DllCall("GetWindowThreadProcessId", "ptr", hwnd, "ptr", 0, "uint")
+    return DllCall("GetKeyboardLayout", "uint", tid, "ptr") & 0xFFFF
+}
+
+ImeCtl(hwnd, cmd, value := 0) {
+    if !(ime := DllCall("imm32\ImmGetDefaultIMEWnd", "ptr", hwnd, "ptr"))
+        return -1
+    result := 0
+    DllCall("SendMessageTimeoutW", "ptr", ime, "uint", 0x283, "ptr", cmd, "ptr", value  ; WM_IME_CONTROL
+          , "uint", 0x2, "uint", 200, "ptr*", &result)                                  ; SMTO_ABORTIFHUNG
+    return result
+}

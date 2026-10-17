@@ -4,3 +4,7 @@ EXPORTS
     DllGetClassObject PRIVATE
     DllRegisterServer PRIVATE
     DllUnregisterServer PRIVATE
+    ; Public API v1 (fkeyime_api.h, docs/api.md)
+    FKeyImeApiVersion
+    FKeyImeQueryWindow
+    FKeyImeQueryThread

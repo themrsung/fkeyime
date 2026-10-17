@@ -71,7 +71,17 @@ if ($Install) {
     # Program Files is readable by ALL APPLICATION PACKAGES, the user's Desktop isn't.
     foreach ($arch in 'x64', 'x86') {
         New-Item "$dest\$arch" -ItemType Directory -Force | Out-Null
-        Copy-Item "$root\build\$arch\src\tip\$Config\fkeyime.dll" "$dest\$arch\" -Force
+        $target = "$dest\$arch\fkeyime.dll"
+        if (Test-Path $target) {
+            # A process that has the TIP loaded keeps the file open. A loaded DLL can still be
+            # renamed: move it aside so new processes get the new build; uninstall deletes it.
+            try { Remove-Item $target -Force } catch {
+                Write-Host "in use, moving aside: $target"
+                tasklist /m fkeyime.dll
+                Rename-Item $target "fkeyime.dll.old-$(Get-Date -f yyyyMMddHHmmssfff)"
+            }
+        }
+        Copy-Item "$root\build\$arch\src\tip\$Config\fkeyime.dll" "$dest\$arch\"
     }
     & "$env:SystemRoot\System32\regsvr32.exe" /s "$dest\x64\fkeyime.dll"
     if ($LASTEXITCODE) { throw "regsvr32 x64 failed ($LASTEXITCODE)" }

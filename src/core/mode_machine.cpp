@@ -13,7 +13,9 @@ Effect JaInput(JapaneseInput input) {
 
 // One-way mode keys. Never early-return on "already in this mode": always re-assert the
 // profile and the reset rules, so a stale state can't leave the key dead.
-Result SwitchTo(const State& current, Mode target, const Policy& policy) {
+// `japanese_input` is the input a Japanese key selects: kana for F20, romaji for F16.
+Result SwitchTo(const State& current, Mode target, const Policy& policy,
+                JapaneseInput japanese_input = JapaneseInput::kKana) {
     Result r{.eaten = true, .next = current};
     r.next.mode = target;
     r.next.caps_lock = false;
@@ -22,8 +24,8 @@ Result SwitchTo(const State& current, Mode target, const Policy& policy) {
     r.effects.push_back(Caps(false));
 
     if (target == Mode::kJapanese) {
-        const bool reset = current.mode != Mode::kJapanese || policy.f20_resets_romaji;
-        if (reset) r.next.japanese_input = JapaneseInput::kKana;
+        const bool reset = current.mode != Mode::kJapanese || policy.japanese_key_resets_input;
+        if (reset) r.next.japanese_input = japanese_input;
         r.effects.push_back(JaInput(r.next.japanese_input));
     } else {
         // Romaji is forgotten when you leave Japanese.
@@ -59,7 +61,9 @@ Result OnFKey(const State& current, FKey key, bool has_modifiers, const Policy& 
     switch (key) {
         case FKey::kF18: return SwitchTo(current, Mode::kKorean, policy);
         case FKey::kF19: return SwitchTo(current, Mode::kEnglish, policy);
-        case FKey::kF20: return SwitchTo(current, Mode::kJapanese, policy);
+        case FKey::kF20: return SwitchTo(current, Mode::kJapanese, policy, JapaneseInput::kKana);
+        case FKey::kF16:
+            return SwitchTo(current, Mode::kJapanese, policy, JapaneseInput::kRomaji);
         case FKey::kF17: return ContextKey(current);
     }
     return {.eaten = false, .next = current};

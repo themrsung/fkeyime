@@ -8,6 +8,7 @@ One Windows IME for **English, Korean and Japanese** on a JIS **HHKB Studio**, s
 | **F18** | Korean 2-Set | Hanja |
 | **F19** | English, JIS symbols | transient Caps Lock |
 | **F20** | Japanese, kana typing (Mozc) | transient romaji |
+| **F16** | Japanese, romaji typing (Mozc) | transient kana |
 
 Every key is one-way: pressing it never toggles you out, and the JIS keycap symbols are right in
 every mode. It replaces the AutoHotkey switching of

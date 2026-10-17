@@ -28,20 +28,24 @@ Fn1 | F18 | Alt | Win | F19 | Space | F20 | F17 | RAlt | Fn1 | ← | ↓ | →
 | **F18** | → **Korean 2-Set** (Hangul composition always on; there is no 영 sub-mode, F19 is English) |
 | **F19** | → **English QWERTY**, **JIS symbols** (`Shift+2` = `"`, ろ = `\` / `_`, ¥ = `¥`), typed by FKeyIME from its own key table |
 | **F20** | → **Japanese, kana input** (JIS kana layout), kana-kanji conversion |
+| **F16** | → **Japanese, romaji input**, kana-kanji conversion (owner, 2026-10-17) |
 | **F17** | Depends on the mode, below |
 
 | Mode | F17 |
 | --- | --- |
 | Korean | **Hanja**: convert the composing syllable/word, or the syllable before the caret |
-| Japanese | **Transient kana ↔ romaji toggle**, forgotten when you leave Japanese |
+| Japanese | **Transient switch to the other input**: kana → romaji after F20, romaji → kana after F16. Forgotten when you leave Japanese |
 | English | **Transient Caps Lock**, turned off by any mode key |
+
+F16 isn't on Profile 4 yet: a key must be set to F16 in the Studio keymap tool (open question
+11). Until then FKeyIME handles F16 from any keyboard or remapper that sends it.
 
 Rules carried over from the macOS and AutoHotkey setups:
 
 - **One-way keys.** A mode key pressed in its own mode keeps you there. It never toggles out and
   is never dead.
 - **Always re-apply.** Never early-return on "already in this mode". Re-assert the profile and
-  the reset rules (kana, Caps Lock off).
+  the reset rules (F20 kana, F16 romaji, Caps Lock off).
 - **Bare keys only.** Shift/Ctrl/Alt/Win + F17–F20 go to the app untouched.
 
 Implemented and unit-tested in `src/core/mode_machine.*` (`tests/mode_machine_test.cpp`).
@@ -90,6 +94,9 @@ One TSF TIP (in-proc COM DLL, C++20) with **three language profiles** under one 
   dictionary in v1. Don't link LGPL libhangul.
 - **English:** FKeyIME's own JIS table, like the other modes. Caps Lock = the real system Caps
   Lock (`SendInput(VK_CAPITAL)`), so the LED matches.
+- **Public API** (`docs/api.md`): `fkeyime.dll` exports `FKeyImeQueryWindow` and friends, which
+  read a session-wide table of the threads where FKeyIME is active. The v1.5.2 AutoHotkey script
+  uses it to step aside while FKeyIME is active.
 - **Global mode** (owner, 2026-10-17): one mode for all windows. `ActivateProfile` with
   `TF_IPPMF_FORSESSION` already switches every TSF thread *(measured, section 6.3)*. A small named
   shared-memory block still carries the romaji flag, so every process agrees on it.
@@ -144,11 +151,14 @@ Decided by the owner (2026-10-17):
 
 Still open (the implemented default stands until the owner says otherwise):
 
-1. F20 while already in Japanese resets romaji → kana? (implemented: yes, `Policy::f20_resets_romaji`)
+1. A Japanese key while already in Japanese re-selects its input (F20 → kana, F16 → romaji)?
+   (implemented: yes, `Policy::japanese_key_resets_input`)
 5. Shift/Ctrl + F17–F20: unused (implemented), or extra functions?
 10. Installer wizard: does the HHKB Studio's own pointing stick count as a "wired mouse" when the
     HHKB is on USB? Proposed: no. Devices with vendor ID `04FE` (PFU) are listed but don't
     trigger the suggestion.
+11. Which physical key sends F16? Profile 4's bottom row is full (F18, F19, F20, F17). Options:
+    an Fn layer key (for example Fn1 + the F20 key), or a key that's free on the Standard layer.
 
 ## 6. M0 results (measured 2026-10-17)
 

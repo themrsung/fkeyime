@@ -6,19 +6,26 @@
 #include "dll.h"
 #include "guids.h"
 #include "log.h"
+#include "state_table.h"
 
 using Microsoft::WRL::ComPtr;
 
 namespace fkeyime {
 namespace {
 
-// Preserved-key ids for F17-F20. Runtime only (never stored), unlike the GUIDs in guids.h.
-// {08E4AE93-17AC-4146-A9E4-4ACD2F8F9BDC} .. {FF19845D-C0A9-4422-BE90-D561DA4B411E}
-constexpr GUID kPreservedKeys[] = {
-    {0x08e4ae93, 0x17ac, 0x4146, {0xa9, 0xe4, 0x4a, 0xcd, 0x2f, 0x8f, 0x9b, 0xdc}},
-    {0xcb893626, 0x692e, 0x4b0c, {0xa6, 0x2b, 0xfa, 0x80, 0x0e, 0x57, 0x4c, 0xda}},
-    {0x3ec3ce66, 0x6001, 0x408d, {0xb5, 0xb6, 0xca, 0x27, 0x3d, 0x02, 0xcf, 0x83}},
-    {0xff19845d, 0xc0a9, 0x4422, {0xbe, 0x90, 0xd5, 0x61, 0xda, 0x4b, 0x41, 0x1e}},
+// The F-keys FKeyIME handles, with their preserved-key ids. The ids are runtime only (never
+// stored), unlike the GUIDs in guids.h.
+struct OurKey {
+    UINT vk;
+    FKey key;
+    GUID preserved;
+};
+constexpr OurKey kOurKeys[] = {
+    {VK_F16, FKey::kF16, {0x1492b3d0, 0x7f17, 0x4e95, {0xa3, 0xd3, 0x51, 0x80, 0x05, 0x43, 0xc3, 0x5c}}},
+    {VK_F17, FKey::kF17, {0x08e4ae93, 0x17ac, 0x4146, {0xa9, 0xe4, 0x4a, 0xcd, 0x2f, 0x8f, 0x9b, 0xdc}}},
+    {VK_F18, FKey::kF18, {0xcb893626, 0x692e, 0x4b0c, {0xa6, 0x2b, 0xfa, 0x80, 0x0e, 0x57, 0x4c, 0xda}}},
+    {VK_F19, FKey::kF19, {0x3ec3ce66, 0x6001, 0x408d, {0xb5, 0xb6, 0xca, 0x27, 0x3d, 0x02, 0xcf, 0x83}}},
+    {VK_F20, FKey::kF20, {0xff19845d, 0xc0a9, 0x4422, {0xbe, 0x90, 0xd5, 0x61, 0xda, 0x4b, 0x41, 0x1e}}},
 };
 
 constexpr UINT kMessageApply = WM_APP + 1;
@@ -158,6 +165,15 @@ STDMETHODIMP TextService::ActivateEx(ITfThreadMgr* thread_mgr, TfClientId client
         SUCCEEDED(profiles->GetActiveProfile(GUID_TFCAT_TIP_KEYBOARD, &active))) {
         ModeFor(active.guidProfile, &state_.mode);
     }
+    // Publish "FKeyIME is active on this thread" for the public API (fkeyime_api.h).
+    if (state::Table* table = state::Shared()) {
+        if (!state::Claim(table, GetCurrentThreadId(), GetCurrentProcessId(),
+                          static_cast<LONG>(state_.mode), log::NowUs())) {
+            log::Write(L"state table full");
+        }
+    } else {
+        log::Write(L"state table unavailable (%lu)", GetLastError());
+    }
     log::Write(L"ActivateEx tid=%lu flags=%#lx mode=%s options: ActivateFlags=%#lx Defer=%d "
                L"PreserveKeys=%d",
                GetCurrentThreadId(), flags, ModeName(state_.mode), activate_flags_,
@@ -168,10 +184,10 @@ STDMETHODIMP TextService::ActivateEx(ITfThreadMgr* thread_mgr, TfClientId client
         HRESULT hr = keystrokes->AdviseKeyEventSink(client_id_, this, TRUE);
         if (FAILED(hr)) log::Write(L"AdviseKeyEventSink failed %#lx", hr);
         if (preserve_keys_) {
-            for (UINT i = 0; i < 4; ++i) {
-                const TF_PRESERVEDKEY key = {VK_F17 + i, 0};
-                hr = keystrokes->PreserveKey(client_id_, kPreservedKeys[i], &key, L"", 0);
-                if (FAILED(hr)) log::Write(L"PreserveKey F%u failed %#lx", 17 + i, hr);
+            for (const OurKey& k : kOurKeys) {
+                const TF_PRESERVEDKEY key = {k.vk, 0};
+                hr = keystrokes->PreserveKey(client_id_, k.preserved, &key, L"", 0);
+                if (FAILED(hr)) log::Write(L"PreserveKey F%u failed %#lx", k.vk - VK_F1 + 1, hr);
             }
         }
     }
@@ -198,6 +214,7 @@ STDMETHODIMP TextService::ActivateEx(ITfThreadMgr* thread_mgr, TfClientId client
 
 STDMETHODIMP TextService::Deactivate() {
     log::Write(L"Deactivate tid=%lu", GetCurrentThreadId());
+    if (state::Table* table = state::Shared()) state::Release(table, GetCurrentThreadId());
     if (message_window_) {
         DestroyWindow(message_window_);
         message_window_ = nullptr;
@@ -206,9 +223,9 @@ STDMETHODIMP TextService::Deactivate() {
         ComPtr<ITfKeystrokeMgr> keystrokes;
         if (SUCCEEDED(thread_mgr_.As(&keystrokes))) {
             if (preserve_keys_) {
-                for (UINT i = 0; i < 4; ++i) {
-                    const TF_PRESERVEDKEY key = {VK_F17 + i, 0};
-                    keystrokes->UnpreserveKey(kPreservedKeys[i], &key);
+                for (const OurKey& k : kOurKeys) {
+                    const TF_PRESERVEDKEY key = {k.vk, 0};
+                    keystrokes->UnpreserveKey(k.preserved, &key);
                 }
             }
             keystrokes->UnadviseKeyEventSink(client_id_);
@@ -225,7 +242,7 @@ STDMETHODIMP TextService::Deactivate() {
 }
 
 bool TextService::IsOurFKey(WPARAM vk) const {
-    return vk >= VK_F17 && vk <= VK_F20 && !HasModifiers();
+    return vk >= VK_F16 && vk <= VK_F20 && !HasModifiers();
 }
 
 STDMETHODIMP TextService::OnSetFocus(BOOL foreground) {
@@ -257,10 +274,10 @@ STDMETHODIMP TextService::OnKeyUp(ITfContext*, WPARAM wparam, LPARAM, BOOL* eate
 
 STDMETHODIMP TextService::OnPreservedKey(ITfContext*, REFGUID guid, BOOL* eaten) {
     *eaten = FALSE;
-    for (UINT i = 0; i < 4; ++i) {
-        if (IsEqualGUID(guid, kPreservedKeys[i])) {
+    for (const OurKey& k : kOurKeys) {
+        if (IsEqualGUID(guid, k.preserved)) {
             *eaten = TRUE;
-            HandleFKey(VK_F17 + i, L"OnPreservedKey");
+            HandleFKey(k.vk, L"OnPreservedKey");
         }
     }
     return S_OK;
@@ -268,9 +285,12 @@ STDMETHODIMP TextService::OnPreservedKey(ITfContext*, REFGUID guid, BOOL* eaten)
 
 void TextService::HandleFKey(WPARAM vk, const wchar_t* path) {
     key_down_us_ = log::NowUs();
-    const auto key = static_cast<FKey>(vk - VK_F17);
+    FKey key = FKey::kF17;
+    for (const OurKey& k : kOurKeys) {
+        if (k.vk == vk) key = k.key;
+    }
     const Result result = OnFKey(state_, key, false, policy_);
-    log::Write(L"key F%u via %s tid=%lu mode %s -> %s", static_cast<unsigned>(vk - VK_F17 + 17),
+    log::Write(L"key F%u via %s tid=%lu mode %s -> %s", static_cast<unsigned>(vk - VK_F1 + 1),
                path, GetCurrentThreadId(), ModeName(state_.mode), ModeName(result.next.mode));
     state_ = result.next;
     for (const Effect& effect : result.effects) {
@@ -313,7 +333,12 @@ void TextService::ActivateMode(Mode mode) {
 STDMETHODIMP TextService::OnActivated(REFCLSID clsid, REFGUID profile, BOOL activated) {
     Mode mode = Mode::kEnglish;
     const bool ours = IsEqualGUID(clsid, kClsidTextService) && ModeFor(profile, &mode);
-    if (ours && activated) state_.mode = mode;
+    if (ours && activated) {
+        state_.mode = mode;
+        if (state::Table* table = state::Shared()) {
+            state::SetMode(table, GetCurrentThreadId(), static_cast<LONG>(mode), log::NowUs());
+        }
+    }
     log::Write(L"OnActivated %s %s since-key=%lldus", ours ? ModeName(mode) : L"other",
                activated ? L"on" : L"off", log::NowUs() - key_down_us_);
     if (activated) LogLayoutProbe(L"OnActivated");
