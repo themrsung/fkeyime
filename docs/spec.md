@@ -288,6 +288,17 @@ Requirements from the owner (2026-10-17):
    (`CycleKeys`), Japanese by kana or romaji (`CycleJapanese`), ``Alt+Shift+` `` as F17 (`F17Keys`).
    **Every escape-hatch option is off by default**; Next without choosing leaves them off. The
    wizard writes them to `HKLM\Software\fkeyime` (section 8: packaged apps can't read HKCU).
+6. **"Do you have an HHKB Studio?"** (owner, 2026-10-17). If yes: "Use the Mac 英数 / かな keys
+   (keymap Profile 1)?" → `MacLangKeys` (section 8). Off by default. The page says Profile 1 has
+   no F17, and that a Korean keyboard's 한자 / 한/영 keys would act as English / Japanese.
+7. **Final page** (owner, 2026-10-17): "Report problems at the FKeyIME GitHub repository
+   (github.com/themrsung/fkeyime/issues). The developer will try to fix them if possible."
+8. **Settings window** (owner, 2026-10-17), opened from Windows' input method settings
+   (`ITfFnConfigure`) and the Start menu: a **Report an issue** button (opens the issues page) and
+   below it **Copy system details**: FKeyIME version, Windows version and build, FKeyIME's
+   options. Before copying, it asks for permission to also include AutoHotkey details: whether
+   AutoHotkey is installed and its version, and the scripts running now. Nothing is sent
+   anywhere; it only goes to the clipboard.
 
 Removal only takes them out of the language list. They stay installed, and uninstalling FKeyIME
 puts them back.
@@ -415,6 +426,38 @@ focus *(inferred from how TIPs load)*.
 
 The cycle is the one key that toggles: it breaks "a mode key never toggles out" (section 1) on
 purpose, because one key can't name three modes. The F-keys keep the rule.
+
+### Mac 英数 / かな keys (option, built and measured 2026-10-17)
+
+For the HHKB Studio's keymap **Profile 1** (the macOS keymap of hhkb-ekj-trilingual), used on
+Windows without changing the keymap. Owner's decision, 2026-10-17: opt-in, offered by the
+installer behind "Do you have an HHKB Studio?" (section 7).
+
+| Option | Values |
+| --- | --- |
+| `MacLangKeys` | `0` off (default). `1`: **英数 acts as F19** (English) and **かな as F20** (Japanese, kana), as on macOS. Profile 1's language key already sends F18 (Korean) |
+
+The compromise: Profile 1 has **no F17** (Hanja, transient romaji, transient Caps Lock) or F16.
+None of them is needed to type anything on a JIS board.
+
+What Profile 1 sends, over Bluetooth *(measured with a low-level hook and Raw Input)*: language
+key F18 (scan 0x69); 英数 HID LANG2; かな LANG1; right Command a plain Right Win (`E0 5C`), which
+can't be used (`issues/modifier-taps-unreachable.md`). Windows delivers LANG1/LANG2 differently
+per layout *(measured)*:
+
+| Thread layout | 英数 (LANG2) | かな (LANG1) |
+| --- | --- | --- |
+| Korean, Japanese (FKeyIME KO, JA) | one key-down, VK 0x19, scan `E0 F1`, no key-up | one key-down, VK 0x15, scan `E0 F2`, no key-up |
+| US (FKeyIME EN) | **no key-down**; two key-ups per press, scan 0x71 (VK 0xE9, then 0xFF) | **no key-down**; two key-ups, scan 0x72 (VK 0xFF) |
+
+So FKeyIME matches them by scan code, on key-down (`E0 F1`/`E0 F2`) and on key-up (0x71/0x72,
+the first of the pair). A Korean keyboard's 한자 and 한/영 keys send the same HID usages, so with
+the option on they'd act as English and Japanese: that's why it's opt-in.
+
+Measured on the owner's HHKB Studio (Profile 1, Bluetooth) in Notepad: 英数 and かな switch
+correctly from every mode, including かな from English (which needed the key-up path). Injected
+keys don't reproduce the device: a scan code alone gets no VK, and injecting VK + scan gives the
+key-down form under every layout, so the US layout's key-up form needs the real keyboard.
 
 ### Measured (owner's PC, 2026-10-17)
 

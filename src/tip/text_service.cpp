@@ -433,6 +433,9 @@ void TextService::LoadKeyboardOptions() {
     cycle_keys_ = cycle;
     cycle_japanese_ = japanese;
     f17_keys_ = f17;
+    const bool mac = ReadOption(L"MacLangKeys", 0) == 1;
+    if (mac != mac_lang_keys_) log::Write(L"options: MacLangKeys=%d", mac);
+    mac_lang_keys_ = mac;
     PreserveComboKeys(true);  // follows a changed option (no-op before ActivateEx)
 }
 
@@ -469,7 +472,16 @@ TextService::Plan TextService::PlanKey(WPARAM vk, LPARAM lparam) const {
         case VK_CAPITAL:
             return {Action::kPass};
     }
-    if (FindFKey(vk)) return HasModifiers() ? pass : Plan{Action::kFKey};
+    if (const OurKey* k = FindFKey(vk)) {
+        return HasModifiers() ? pass : Plan{Action::kFKey, 0, k->key};
+    }
+    // Mac 英数 / かな (option MacLangKeys). Windows sends them as one key-down with no key-up
+    // (measured on the HHKB Studio, Profile 1, Bluetooth), so only the key-down matters.
+    if (FKey mac; mac_lang_keys_ && !HasModifiers() &&
+                  MacLanguageKey(static_cast<std::uint8_t>((lparam >> 16) & 0xFF),
+                                 (lparam & (1 << 24)) != 0, false, &mac)) {
+        return {Action::kFKey, 0, mac};
+    }
     // Alt+` / Alt+Shift+` that no preserved key caught: the Japanese layout's VK_KANJI.
     if (((lparam >> 16) & 0xFF) == jis::scan::kGrave && Down(VK_MENU) && !Down(VK_CONTROL)) {
         const bool f17 = Down(VK_SHIFT);
@@ -560,7 +572,7 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* context, WPARAM wparam, LPARAM l
             HandleConversionKey(context, wparam);
             break;
         case Action::kFKey:
-            HandleFKey(context, FindFKey(wparam)->key, L"OnKeyDown");
+            HandleFKey(context, plan.fkey, L"OnKeyDown");
             break;
         case Action::kCombo:
             if (Down(VK_SHIFT)) {
@@ -573,17 +585,37 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* context, WPARAM wparam, LPARAM l
     return S_OK;
 }
 
-STDMETHODIMP TextService::OnTestKeyUp(ITfContext*, WPARAM wparam, LPARAM, BOOL* eaten) {
+bool TextService::MacKeyUp(LPARAM lparam, FKey* key) const {
+    return mac_lang_keys_ && !HasModifiers() &&
+           MacLanguageKey(static_cast<std::uint8_t>((lparam >> 16) & 0xFF),
+                          (lparam & (1 << 24)) != 0, true, key);
+}
+
+STDMETHODIMP TextService::OnTestKeyUp(ITfContext*, WPARAM wparam, LPARAM lparam, BOOL* eaten) {
+    FKey mac;
     *eaten = (FindFKey(wparam) && !HasModifiers()) ||
-             (wparam == VK_APPS && (cycle_keys_ & kComboMenu));
+             (wparam == VK_APPS && (cycle_keys_ & kComboMenu)) || MacKeyUp(lparam, &mac);
     return S_OK;
 }
 
-STDMETHODIMP TextService::OnKeyUp(ITfContext*, WPARAM wparam, LPARAM, BOOL* eaten) {
+STDMETHODIMP TextService::OnKeyUp(ITfContext* context, WPARAM wparam, LPARAM lparam,
+                                  BOOL* eaten) {
     // Eat F-key key-ups too, so the app never sees half a key press. Menu's key-up as well: it's
     // what opens the context menu.
     *eaten = (FindFKey(wparam) && !HasModifiers()) ||
              (wparam == VK_APPS && (cycle_keys_ & kComboMenu));
+    // Mac 英数 / かな under the US layout: key-ups only, two per press about 100 ms apart
+    // (measured). Act on the first.
+    if (FKey mac; MacKeyUp(lparam, &mac)) {
+        *eaten = TRUE;
+        const long long now = log::NowUs();
+        if (mac != last_mac_key_ || now - last_mac_key_us_ > 250000) {
+            ReloadOptionsIfChanged();
+            HandleFKey(context, mac, L"OnKeyUp (Mac key, US layout)");
+        }
+        last_mac_key_ = mac;
+        last_mac_key_us_ = now;
+    }
     return S_OK;
 }
 

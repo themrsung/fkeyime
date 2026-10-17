@@ -69,6 +69,15 @@ Result OnFKey(const State& current, FKey key, bool has_modifiers, const Policy& 
     return {.eaten = false, .next = current};
 }
 
+bool MacLanguageKey(std::uint8_t scan, bool extended, bool key_up, FKey* key) {
+    if (key_up ? extended : !extended) return false;
+    switch (key_up ? scan | 0x80 : scan) {
+        case 0xF1: *key = FKey::kF19; return true;  // 英数 (LANG2) -> English
+        case 0xF2: *key = FKey::kF20; return true;  // かな (LANG1) -> Japanese, kana
+    }
+    return false;
+}
+
 FKey CycleKey(Mode current, JapaneseInput japanese) {
     switch (current) {
         case Mode::kEnglish: return FKey::kF18;

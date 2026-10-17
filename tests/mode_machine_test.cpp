@@ -142,3 +142,22 @@ TEST_CASE("cycle key: English -> Korean -> Japanese -> English") {
     s = OnFKey(s, CycleKey(s.mode, JapaneseInput::kRomaji), false).next;
     CHECK(s.mode == Mode::kEnglish);
 }
+
+TEST_CASE("Mac 英数 / かな keys stand for F19 / F20, by scan code only") {
+    FKey key = FKey::kF17;
+    // Korean and Japanese layouts: one extended key-down.
+    CHECK(MacLanguageKey(0xF1, true, false, &key));
+    CHECK(key == FKey::kF19);
+    CHECK(MacLanguageKey(0xF2, true, false, &key));
+    CHECK(key == FKey::kF20);
+    // US layout: key-ups with scan 0x71 / 0x72.
+    CHECK(MacLanguageKey(0x71, false, true, &key));
+    CHECK(key == FKey::kF19);
+    CHECK(MacLanguageKey(0x72, false, true, &key));
+    CHECK(key == FKey::kF20);
+    CHECK(!MacLanguageKey(0xF1, false, false, &key));  // not the LANG2 code
+    CHECK(!MacLanguageKey(0x72, false, false, &key));  // a 0x72 key-down isn't a LANG key
+    CHECK(!MacLanguageKey(0xF2, true, true, &key));
+    CHECK(!MacLanguageKey(0x29, false, false, &key));  // the ` key (VK_KANJI with Alt, JIS)
+    CHECK(!MacLanguageKey(0x5C, true, false, &key));   // Right Win (right Command)
+}

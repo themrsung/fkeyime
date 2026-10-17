@@ -61,4 +61,14 @@ Result OnFKey(const State& current, FKey key, bool has_modifiers, const Policy& 
 // with F20 (kana) or F16 (romaji), per `japanese`.
 FKey CycleKey(Mode current, JapaneseInput japanese);
 
+// The Mac JIS language keys (option MacLangKeys, offered for the HHKB Studio's keymap Profile 1):
+// 英数 (HID LANG2) acts as F19 (English) and かな (LANG1) as F20 (Japanese, kana), as on macOS.
+// How Windows delivers them depends on the thread's layout (measured, HHKB Studio Profile 1):
+// - Korean and Japanese layouts: one key-down, scan E0 F1 / E0 F2, no key-up.
+// - US layout (FKeyIME EN): no key-down; two key-ups per press, scan 0x71 / 0x72.
+// Matched by scan code because the virtual key changes with the layout (VK_HANJA, VK_KANJI,
+// 0xE9, 0xFF). A Korean keyboard's 한자 and 한/영 keys send the same codes, so the option is
+// opt-in. Returns false for any other key.
+bool MacLanguageKey(std::uint8_t scan, bool extended, bool key_up, FKey* key);
+
 }  // namespace fkeyime

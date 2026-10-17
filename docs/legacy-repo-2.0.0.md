@@ -72,6 +72,7 @@ Tell the user plainly: **choosing FKeyIME installs dependencies.** Path A has on
 | English | Japanese with the IME off: JIS symbols, taskbar shows JA | Real en-US profile, taskbar shows EN, JIS symbols from FKeyIME's own table. Apps that read raw keys (games, some terminals) still see the Windows layout |
 | Japanese | Microsoft Japanese IME (cloud suggestions, MS user dictionary) | FKeyIME's own IME and kana table (F6/F7/F8 like macOS), with a bundled, renamed `mozc_server` for conversion only (Option B, decided): offline, different conversion, no MS dictionary |
 | F17 | 한자 in Korean only | Hanja / transient other Japanese input / transient Caps Lock |
+| HHKB Studio on the macOS keymap (Profile1) | Not supported (Profile 4 required) | Opt-in `MacLangKeys`: 英数 → English, かな → Japanese, F18 → Korean, **no F17**. The installer asks "Do you have an HHKB Studio?" (M5). Measured on the owner's Studio |
 | F16 | Not used | Japanese with romaji input (needs a key set to F16; FKeyIME spec, open question 11) |
 | Keyboard without F16-F20 | Needs the keymap (HHKB Profile 4, or a remap tool) | Same, or the optional escape hatch (off by default, no remap): ``Alt+` `` (or Menu) cycles English → Korean → Japanese, ``Alt+Shift+` `` acts as F17. Probe-tested, not yet on a keyboard |
 | Both installed | — | Supported with the FKeyIME-aware AutoHotkey script. Win+Space picks: with FKeyIME chosen, F-keys go to FKeyIME everywhere (windows still on a Microsoft IME are moved to it); with a Microsoft IME chosen, AutoHotkey switches as in v1.5.2 |
@@ -147,6 +148,10 @@ section 5). ARM64: none (not shipped).
 ## Changelog of this guide
 
 One entry per FKeyIME commit (newest first).
+
+- **Mac 英数 / かな keys (opt-in).** New tradeoff row: with `MacLangKeys`, the Studio's Profile1
+  (macOS keymap) works on Path B too, without F17. In `04-fkeyime.md`, mention it as optional
+  only; Profile 4 stays the documented keymap. Still not ready.
 
 - **Default input method: not solved.** Measured after a reboot: the override alone didn't start
   the session in FKeyIME (`docs/issues/sign-in-starts-on-microsoft-ime.md`, reopened). In

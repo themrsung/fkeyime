@@ -23,6 +23,7 @@ Korean and Japanese IMEs, started by the `hhkb-ekj-trilingual` logon task.
 | **macOS** (Karabiner + Hammerspoon, Profile1) | Nothing. FKeyIME is Windows-only, and macOS is unchanged |
 | **Windows**, Profile 4 + AutoHotkey | This guide, if you want FKeyIME. AutoHotkey stays supported as the legacy option |
 | **Windows**, Profile3 fallback (no AutoHotkey) | Optional. FKeyIME needs Profile 4, below |
+| **Windows** with the HHKB Studio on the **macOS keymap, Profile1** | Optional: FKeyIME's opt-in Mac keys setting (`MacLangKeys`) makes 英数 → English and かな → Japanese, and the F18 key → Korean, with no keymap change. No F17 on that keymap (Hanja, transient romaji, transient Caps Lock). Measured on the owner's Studio over Bluetooth. The installer asks "Do you have an HHKB Studio?" ⏳ (M5) |
 | HYBRID Type-S | Not applicable. FKeyIME targets the HHKB Studio JIS |
 | A US ANSI board (104/108-key page) | Optional: FKeyIME has a US ANSI setting (`KeyboardLayout=1`, FKeyIME spec section 8): US symbols in English and Korean, kana at JIS positions, ー and ろ on the `` ` `` key or on F14 / F15 from the keyboard. Without remapping, an optional escape hatch: ``Alt+` `` (or Menu) cycles the modes, ``Alt+Shift+` `` acts as F17 (FKeyIME spec section 8, off by default). Passes FKeyIME's test program; not yet tried on a keyboard ⏳ |
 
@@ -135,6 +136,10 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 ## Changelog of this guide
 
 One entry per FKeyIME commit (newest first).
+
+- **Mac 英数 / かな keys (opt-in).** New row in "Who needs to migrate": the HHKB Studio's macOS
+  keymap (Profile1) can drive FKeyIME on Windows with the `MacLangKeys` setting (英数 English,
+  かな Japanese, F18 Korean, no F17). Measured on the owner's Studio. Off by default.
 
 - **Sign-in still starts on a Microsoft IME.** Measured after a reboot: even with "Override for
   default input method" set to FKeyIME EN, the session started on the Microsoft Korean IME. The

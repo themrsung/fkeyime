@@ -90,6 +90,7 @@ private:
     struct Plan {
         Action action = Action::kPass;
         char16_t ch = 0;
+        FKey fkey = FKey::kF17;  // kFKey: which one
     };
     Plan PlanKey(WPARAM vk, LPARAM lparam) const;
     JapaneseInput JapaneseInputNow() const;  // session-wide (state table), else this thread's
@@ -104,6 +105,8 @@ private:
     bool Composing() const { return !hangul_.Empty() || !kana_.Empty() || converting_; }
 
     void HandleFKey(ITfContext* context, FKey key, const wchar_t* path);
+    // A Mac 英数 / かな key-up as the US layout delivers it (option MacLangKeys).
+    bool MacKeyUp(LPARAM lparam, FKey* key) const;
     // The escape-hatch combos (options CycleKeys, F17Keys) as TSF preserved keys; `on` false
     // drops them all.
     void PreserveComboKeys(bool on);
@@ -166,6 +169,9 @@ private:
     DWORD cycle_keys_ = 0;  // option CycleKeys: 1 Alt+`, 2 Menu cycle the modes
     JapaneseInput cycle_japanese_ = JapaneseInput::kKana;  // option CycleJapanese: 1 romaji
     DWORD f17_keys_ = 0;                      // option F17Keys: 1 Alt+Shift+` acts as F17
+    bool mac_lang_keys_ = false;  // option MacLangKeys: 1 英数 = F19, かな = F20 (Profile 1)
+    FKey last_mac_key_ = FKey::kF17;  // the US layout sends two key-ups per press
+    long long last_mac_key_us_ = 0;
     unsigned combos_preserved_ = 0;           // bit i: kComboKeys[i] is preserved
     HANDLE options_changed_ = nullptr;        // signaled when an options key changes
     HKEY options_keys_[2] = {};               // HKCU, HKLM \Software\fkeyime (null if absent)
