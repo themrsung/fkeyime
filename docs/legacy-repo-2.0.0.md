@@ -9,6 +9,14 @@ the tradeoffs below and asks the user to choose.
 This file is updated with every FKeyIME commit. Read the version at the FKeyIME tag you're
 targeting, not `main`.
 
+**A preview exists:** branch `experimental/2.0.0-preview` (commit `4d88e7d`) on top of `v1.5.3`,
+made from this guide. Differences from the plan below: it's based on `v1.5.3` (which added the
+104/108-key page; that page now says Path B doesn't fit ANSI keycaps), pins FKeyIME by commit
+(`33209e2`) because there's no release yet, installs Path B from source with `tools/spike.ps1`,
+and its README prompt is pinned to the branch, not a tag. No tag was created and `main` wasn't
+touched. For the real v2.0.0, start from that branch and swap the source install for the MSI
+once the gate below is met.
+
 ## 0. Readiness gate (check first)
 
 > [!IMPORTANT]
@@ -139,6 +147,9 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **2.0.0-preview pushed.** hhkb-ekj-trilingual's `experimental/2.0.0-preview` branch carries the
+  changes from section 4 on top of v1.5.3, with FKeyIME pinned at 33209e2. New note above the
+  gate lists how the preview differs from the plan. The gate itself is still not met.
 - **Conversion server watch-dog fix.** No change for the 2.0.0 work. Path B's verification could
   include FKeyIME's `tools/test-mozc-server.ps1` (the server survives watch dog cycles). Still not
   ready.

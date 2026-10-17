@@ -1,5 +1,9 @@
 # Migrating from hhkb-ekj-trilingual v1.5.2 to FKeyIME
 
+hhkb-ekj-trilingual is now at `v1.5.3` (it only added a 104/108-key page; the Windows setup is the
+same as v1.5.2), and its `experimental/2.0.0-preview` branch already offers FKeyIME as Path B
+(`docs/windows/04-fkeyime.md` there). This guide applies to v1.5.3 too.
+
 For people who set up Windows with
 [`themrsung/hhkb-ekj-trilingual`](https://github.com/themrsung/hhkb-ekj-trilingual) at tag
 **v1.5.2**: HHKB Studio JIS on keymap Profile 4, AutoHotkey v2 switching between the Microsoft
@@ -126,6 +130,9 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Preview of hhkb-ekj-trilingual 2.0.0.** Its `experimental/2.0.0-preview` branch now offers
+  FKeyIME as Path B next to AutoHotkey. This guide also covers v1.5.3, whose Windows setup is
+  unchanged from v1.5.2.
 - **Conversion server no longer crashes every 3 minutes.** Mozc's watch dog aborted FKeyIME's
   server because it runs outside Mozc's install folder; conversion recovered on the next Space,
   with a short delay. Fixed with a Mozc patch. Still no installer.
