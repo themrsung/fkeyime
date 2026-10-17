@@ -133,6 +133,9 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Issue notes.** New `docs/issues/`: every problem met so far (Backspace sending messages,
+  apps not loading FKeyIME, sign-in on the Microsoft IME, AutoHotkey taking the keys, server
+  crashes…) with cause and solution. Check it before reporting a problem.
 - **Start in FKeyIME after signing in.** Step 4 now sets Windows' default input method to
   FKeyIME EN: without it, sign-in started on the Microsoft Korean IME and the F-keys went to
   AutoHotkey until FKeyIME was picked with Win+Space.

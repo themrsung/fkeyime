@@ -21,6 +21,8 @@ every mode. It replaces the AutoHotkey switching of
 > (`tools/spike.ps1`). No Hanja or romaji input yet. Status: [`docs/spec.md`](docs/spec.md),
 > sections 4, 8 and 9.
 
+Problems met so far and how they were solved: [`docs/issues/`](docs/issues/README.md).
+
 ## Build
 
 Windows 11 x64 with Visual Studio 2022 Build Tools (C++, ATL), CMake, Ninja, Python 3.12+,

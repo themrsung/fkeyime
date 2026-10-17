@@ -9,6 +9,7 @@ English / Korean / Japanese on a JIS HHKB Studio, switched with F17–F20. Read 
 | `src/core/` | Mode logic (F-key rules), pure C++, no Windows headers. Unit-tested |
 | `src/tip/` | The TSF text input processor DLL (`fkeyime.dll`). `guids.h` is permanent |
 | `tests/` | Unit tests (`tools/build.ps1` runs them) |
+| `docs/issues/` | Issues met so far, with cause and solution. Read the matching one before "fixing" something again |
 | `docs/api.md` | Public API (`fkeyime_api.h`): is FKeyIME active in a window? Version 1, append-only |
 | `examples/autohotkey/` | The v1.5.2 AutoHotkey script, made FKeyIME-aware with the API |
 | `tools/` | `bootstrap.ps1`, `build.ps1`, `dev.ps1`, `fetch-mozc.ps1` |

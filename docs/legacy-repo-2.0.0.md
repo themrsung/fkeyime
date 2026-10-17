@@ -147,6 +147,9 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Issue notes.** FKeyIME's `docs/issues/` lists the problems met so far with causes and
+  solutions. Path B's `issues/` entries in hhkb-ekj-trilingual can link to them at the pinned
+  commit instead of repeating them. Still not ready.
 - **Default input method.** The preview's `docs/windows/04-fkeyime.md` (branch
   `experimental/2.0.0-preview`) needs one more install step, next to "one input method for all
   windows": set "Override for default input method" to FKeyIME EN, or sign-in starts on a

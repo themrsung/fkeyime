@@ -14,6 +14,8 @@
 //       The session's input method, as a fresh thread / a long-lived windowless thread sees it;
 //       a plain window that never picks one (optionally starting on Microsoft's Korean IME);
 //       switch the whole session to FKeyIME KO or to the Microsoft Korean IME.
+//   fkeyime_probe.exe --type-fg <tokens>
+//       Types a --typing token sequence into the foreground window and prints its title.
 //   fkeyime_probe.exe --keylog [seconds]
 //       Records key codes (no text) with a low-level hook, then the foreground control's text.
 //   fkeyime_probe.exe --handoff [rounds]
@@ -504,6 +506,8 @@ int Typing(const wchar_t* only) {  // only: run cases whose name starts with it
     const Case cases[] = {
         {L"EN JIS symbols", L"{F19}S-2{RO}S-{RO}{YEN}S-{YEN}@[:aS-a1S-7S-^", L"\"\\_\u00A5|@[:aA1'~"},
         {L"EN transient Caps Lock", L"{F19}{F17}ab{F17}c{F17}d{F19}e", L"ABcDe"},
+        {L"EN backspace", L"{F19}hu{BS}x", L"hx"},
+        {L"EN backspace after symbols", L"{F19}S-2a{BS}{BS}b", L"b"},
         {L"KO 2-Set + JIS symbol", L"{F18}dkssudgktpdyS-2{SP}rkrk{ENTER}", L"\uC548\uB155\uD558\uC138\uC694\" \uAC00\uAC00"},
         {L"KO backspace by jamo", L"{F18}rhk{BS}{BS}l{ENTER}", L"\uAE30"},
         {L"KO Shift inside a syllable", L"{F18}dlS-t{ENTER}", L"\uC788"},
@@ -610,6 +614,20 @@ int wmain(int argc, wchar_t** argv) {
     if (argc > 1 && !wcscmp(argv[1], L"--send")) return SendToForeground();
     if (argc > 1 && !wcscmp(argv[1], L"--hanja-fg")) return HanjaForeground();
     if (argc > 1 && !wcscmp(argv[1], L"--keylog")) return KeyLog(argc > 2 ? _wtoi(argv[2]) : 30);
+    if (argc > 2 && !wcscmp(argv[1], L"--type-fg")) {
+        // Types a --typing token sequence into the foreground window, then prints its title (a
+        // test page can mirror its text and key events there).
+        for (const Tok& t : Keys(argv[2])) {
+            SendKey(t.vk, t.scan, t.shift, t.vk == 0,
+                    t.vk == VK_LEFT || t.vk == VK_RIGHT || t.vk == VK_DOWN);
+            Pump(80);
+        }
+        Pump(500);
+        wchar_t title[512] = L"";
+        GetWindowTextW(GetForegroundWindow(), title, 512);
+        std::wprintf(L"title: [%s]\n", Escaped(title).c_str());
+        return 0;
+    }
     if (argc > 1 && !wcscmp(argv[1], L"--passive")) {
         // A plain window that never picks an input method itself, like an ordinary app: prints
         // which one its thread has, once a second, so session-wide switches can be watched.
