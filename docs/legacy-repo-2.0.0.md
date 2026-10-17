@@ -149,6 +149,10 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Settings window.** FKeyIME now has Report an issue and Copy system details (with an opt-in
+  for AutoHotkey details). In `04-fkeyime.md`'s troubleshooting, tell users to attach the copied
+  details to FKeyIME issues. Still not ready.
+
 - **Mac 英数 / かな keys (opt-in).** New tradeoff row: with `MacLangKeys`, the Studio's Profile1
   (macOS keymap) works on Path B too, without F17. In `04-fkeyime.md`, mention it as optional
   only; Profile 4 stays the documented keymap. Still not ready.

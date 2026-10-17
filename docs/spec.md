@@ -298,7 +298,13 @@ Requirements from the owner (2026-10-17):
    below it **Copy system details**: FKeyIME version, Windows version and build, FKeyIME's
    options. Before copying, it asks for permission to also include AutoHotkey details: whether
    AutoHotkey is installed and its version, and the scripts running now. Nothing is sent
-   anywhere; it only goes to the clipboard.
+   anywhere; it only goes to the clipboard. **Built** (`src/settings`, `fkeyime-settings.exe`,
+   2026-10-17). Measured on the owner's PC: the TIP's `ITfFnConfigure::Show` (called through
+   COM) opens it; Report an issue opens the issues page; Copy system details gives FKeyIME's
+   version and commit, Windows edition/version/build, the DLL paths, both option keys, the
+   language list with its input methods in order, the default override, and with consent
+   AutoHotkey's version and running scripts. Not tested yet: opening it from Windows Settings
+   (the language's keyboard options).
 
 Removal only takes them out of the language list. They stay installed, and uninstalling FKeyIME
 puts them back.

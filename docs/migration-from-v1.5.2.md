@@ -137,6 +137,11 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Settings window.** FKeyIME has a small settings window (`fkeyime-settings.exe`): **Report an
+  issue** opens the GitHub issues page, **Copy system details** copies what an issue report
+  needs, and asks first before including your AutoHotkey version and running scripts. Nothing is
+  sent anywhere. The installer will add it to the Start menu (M5).
+
 - **Mac 英数 / かな keys (opt-in).** New row in "Who needs to migrate": the HHKB Studio's macOS
   keymap (Profile1) can drive FKeyIME on Windows with the `MacLangKeys` setting (英数 English,
   かな Japanese, F18 Korean, no F17). Measured on the owner's Studio. Off by default.

@@ -85,6 +85,9 @@ if ($Install) {
         }
         Copy-Item "$root\build\$arch\src\tip\$Config\fkeyime.dll" "$dest\$arch\"
     }
+    # The settings window, which the TIP's ITfFnConfigure starts from the folder above x64 / x86.
+    $settings = "$root\build\x64\src\settings\$Config\fkeyime-settings.exe"
+    if (Test-Path $settings) { Copy-Item $settings "$dest\" -Force }
     # The kanji conversion server (tools/build-mozc-server.ps1), next to the DLL folders where
     # the TIP looks for it. A running one is stopped so it can be replaced; the TIP restarts it.
     $server = "$root\build\mozc\fkeyime_mozc_server.exe"

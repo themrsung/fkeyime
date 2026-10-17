@@ -8,6 +8,7 @@
 // log (log.h) records F-keys and profile changes, never typed text.
 #pragma once
 
+#include <ctffunc.h>
 #include <msctf.h>
 #include <windows.h>
 #include <wrl/client.h>
@@ -31,7 +32,8 @@ class TextService final : public ITfTextInputProcessorEx,
                           public ITfKeyEventSink,
                           public ITfActiveLanguageProfileNotifySink,
                           public ITfCompositionSink,
-                          public ITfDisplayAttributeProvider {
+                          public ITfDisplayAttributeProvider,
+                          public ITfFnConfigure {
 public:
     TextService();
     TextService(const TextService&) = delete;
@@ -66,6 +68,10 @@ public:
     // ITfDisplayAttributeProvider
     STDMETHODIMP EnumDisplayAttributeInfo(IEnumTfDisplayAttributeInfo** infos) override;
     STDMETHODIMP GetDisplayAttributeInfo(REFGUID guid, ITfDisplayAttributeInfo** info) override;
+
+    // ITfFnConfigure: Windows' input method settings ("Options") open the settings window.
+    STDMETHODIMP GetDisplayName(BSTR* name) override;
+    STDMETHODIMP Show(HWND parent, LANGID langid, REFGUID profile) override;
 
     // Posted from the key handler when activation is deferred (spike option "Defer").
     void ApplyDeferred();

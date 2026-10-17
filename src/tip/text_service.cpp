@@ -251,6 +251,8 @@ STDMETHODIMP TextService::QueryInterface(REFIID riid, void** object) {
 
     } else if (riid == IID_ITfDisplayAttributeProvider) {
         *object = static_cast<ITfDisplayAttributeProvider*>(this);
+    } else if (riid == IID_ITfFnConfigure || riid == IID_ITfFunction) {
+        *object = static_cast<ITfFnConfigure*>(this);
     } else {
         *object = nullptr;
         return E_NOINTERFACE;
@@ -1010,6 +1012,35 @@ STDMETHODIMP TextService::EnumDisplayAttributeInfo(IEnumTfDisplayAttributeInfo**
     if (!infos) return E_INVALIDARG;
     *infos = NewDisplayAttributeEnum();
     return *infos ? S_OK : E_OUTOFMEMORY;
+}
+
+STDMETHODIMP TextService::GetDisplayName(BSTR* name) {
+    if (!name) return E_INVALIDARG;
+    *name = SysAllocString(L"FKeyIME settings");
+    return *name ? S_OK : E_OUTOFMEMORY;
+}
+
+STDMETHODIMP TextService::Show(HWND, LANGID, REFGUID) {
+    // fkeyime-settings.exe sits in the install folder, one level above the x64 / x86 DLL folder.
+    wchar_t path[MAX_PATH];
+    const DWORD length = GetModuleFileNameW(DllInstance(), path, MAX_PATH);
+    if (!length || length == MAX_PATH) return E_FAIL;
+    for (int i = 0; i < 2; ++i) {
+        wchar_t* slash = wcsrchr(path, L'\\');
+        if (!slash) return E_FAIL;
+        *slash = 0;
+    }
+    if (wcscat_s(path, L"\\fkeyime-settings.exe")) return E_FAIL;
+    STARTUPINFOW startup = {sizeof(startup)};
+    PROCESS_INFORMATION process;
+    if (!CreateProcessW(path, nullptr, nullptr, nullptr, FALSE, 0, nullptr, nullptr, &startup,
+                        &process)) {
+        log::Write(L"Show: can't start %s (%lu)", path, GetLastError());
+        return HRESULT_FROM_WIN32(GetLastError());
+    }
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+    return S_OK;
 }
 
 STDMETHODIMP TextService::GetDisplayAttributeInfo(REFGUID guid, ITfDisplayAttributeInfo** info) {
