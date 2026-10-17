@@ -139,6 +139,9 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Restart apps after installing.** Path B docs (04-fkeyime.md) must tell users to sign out or
+  restart their apps after installing or updating FKeyIME: running apps may not load it (spec
+  section 3). Still not ready.
 - **AutoHotkey script: Win+Space decides.** The "Both installed" row now describes the session
   check. Copy the script at the FKeyIME release tag, not an older one: the first FKeyIME-aware
   version could leave every window on the Microsoft IMEs. Still not ready.

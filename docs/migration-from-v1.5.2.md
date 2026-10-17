@@ -101,7 +101,8 @@ Every step changes the system. Do them in order, and keep the backups.
    remove them later in Settings → Time & language → Language & region. Turn **off** "Let me use a different input method for each app
    window" (Settings → Time & language → Typing → Advanced keyboard settings).
 
-5. ⏳ **Verify** (M6): sign out and back in, then check F18 → `안녕하세요`, F19 → `the"` with
+5. ⏳ **Verify** (M6): sign out and back in (apps that were running during the install may not
+   use FKeyIME until they restart), then check F18 → `안녕하세요`, F19 → `the"` with
    Shift+2 → `"`, F20 → `3` gives あ, F17 in each mode, and the symbols in Korean
    (``@[]:;"`` should now match the keycaps).
 
@@ -125,6 +126,9 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Restart apps after installing.** Apps that were already running may keep typing with
+  Windows' plain layouts (English letters in Korean and Japanese) until they restart; signing out
+  restarts them all. Measured: Notepad typed Korean and kana again after a restart.
 - **AutoHotkey script: Win+Space decides.** With FKeyIME chosen, the script no longer takes the
   F-keys anywhere and moves windows still on a Microsoft IME to FKeyIME. Fixes: after one F-key in
   a window without FKeyIME, every window stayed on the Microsoft IMEs and AutoHotkey kept taking

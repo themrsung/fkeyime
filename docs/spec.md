@@ -119,6 +119,12 @@ One TSF TIP (in-proc COM DLL, C++20) with **three language profiles** under one 
 - A TIP only sees keys while one of its own profiles is active. Another program's low-level
   keyboard hook gets F17–F20 first: v1.5.2's AutoHotkey script took them all until it was
   stopped *(measured)*. The MSI must make sure AutoHotkey switching is off.
+- **Apps already running when FKeyIME is installed, updated or reinstalled may not load it until
+  they restart** *(measured 2026-10-17)*: Notepad, Claude, Opera, Edge and Windows Terminal,
+  running since before the day's reinstalls (and the rename from FKeyIDE), switched to FKeyIME's
+  language but never asked the DLL for its object, so Windows' plain layouts typed instead.
+  Freshly started apps (Win32, WPF) and the same Notepad after a restart loaded it at once. The
+  installer (M5) must ask to restart apps or sign out.
 - Compared with the Microsoft IMEs: no cloud suggestions, no Microsoft user dictionary, different
   (Mozc) conversion quality, no Korean 3-Set or old Hangul, and Hanja for single syllables only, in v1.
 

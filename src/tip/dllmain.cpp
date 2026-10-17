@@ -5,6 +5,7 @@
 
 #include "dll.h"
 #include "guids.h"
+#include "log.h"
 #include "registration.h"
 #include "text_service.h"
 
@@ -37,6 +38,9 @@ public:
     }
 
     STDMETHODIMP CreateInstance(IUnknown* outer, REFIID riid, void** object) override {
+        wchar_t iid[40] = L"";
+        StringFromGUID2(riid, iid, 40);
+        log::Write(L"CreateInstance %s", iid);
         if (!object) return E_INVALIDARG;
         *object = nullptr;
         if (outer) return CLASS_E_NOAGGREGATION;
@@ -75,6 +79,7 @@ STDAPI DllCanUnloadNow() { return fkeyime::g_refs ? S_FALSE : S_OK; }
 STDAPI DllGetClassObject(REFCLSID clsid, REFIID riid, void** object) {
     if (!object) return E_INVALIDARG;
     *object = nullptr;
+    fkeyime::log::Write(L"DllGetClassObject");
     if (!IsEqualCLSID(clsid, fkeyime::kClsidTextService)) return CLASS_E_CLASSNOTAVAILABLE;
     return fkeyime::g_factory.QueryInterface(riid, object);
 }
