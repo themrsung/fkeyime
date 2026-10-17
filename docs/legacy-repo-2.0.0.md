@@ -149,6 +149,11 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Installer, first version.** An MSI builds and passes ICE validation, not yet installed on a
+  PC, unsigned, without the device page or the IME-removal choice. Readiness gate unchanged (no
+  signed, tagged MSI). Known issue for `04-fkeyime.md`: Windows Settings doesn't list FKeyIME's
+  keyboards; its settings window is in the Start menu.
+
 - **Settings window.** FKeyIME now has Report an issue and Copy system details (with an opt-in
   for AutoHotkey details). In `04-fkeyime.md`'s troubleshooting, tell users to attach the copied
   details to FKeyIME issues. Still not ready.

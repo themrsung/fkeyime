@@ -1,0 +1,165 @@
+<!--
+  FKeyIME MSI (milestone M5, first version). Build: installer/build.ps1.
+
+  Per machine, x64 Windows. Installs the x64 and x86 TIP DLLs, the settings window and the kanji
+  conversion server into Program Files\FKeyIME, registers the TIP (regsvr32, the same code as
+  the development install), and, as the signed-in user, adds FKeyIME EN / KO / JA to the
+  language list. The Microsoft IMEs stay in the list.
+
+  The UpgradeCode is permanent, like the GUIDs in src/tip/guids.h: never change it.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="FKeyIME" Manufacturer="themrsung" Version="$(var.Version)"
+           UpgradeCode="3B98FC7D-C4C0-4D93-909A-638C5DEFA00B" Scope="perMachine"
+           InstallerVersion="500">
+    <MajorUpgrade DowngradeErrorMessage="A newer FKeyIME is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/themrsung/fkeyime" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/themrsung/fkeyime/issues" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+
+    <!-- Wizard answers (docs/spec.md, section 7). Both off unless the user picks them. -->
+    <Property Id="HHKBSTUDIO" Value="0" />
+    <Property Id="MACLANGKEYS" Secure="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="FKeyIME">
+        <Directory Id="X64FOLDER" Name="x64" />
+        <Directory Id="X86FOLDER" Name="x86" />
+        <Directory Id="MOZCFOLDER" Name="mozc" />
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="DATAFOLDER" Name="fkeyime" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <Feature Id="Main" Title="FKeyIME" Level="1">
+      <Component Directory="X64FOLDER" Bitness="always64">
+        <File Id="TipX64" Source="$(var.BuildDir)\x64\src\tip\Release\fkeyime.dll" />
+      </Component>
+      <!-- A plain file: regsvr32 from SysWOW64 does the 32-bit registration. -->
+      <Component Directory="X86FOLDER" Bitness="always64">
+        <File Id="TipX86" Source="$(var.BuildDir)\x86\src\tip\Release\fkeyime.dll" />
+      </Component>
+      <Component Directory="INSTALLFOLDER" Bitness="always64">
+        <File Id="SettingsExe" Source="$(var.BuildDir)\x64\src\settings\Release\fkeyime-settings.exe" />
+      </Component>
+      <Component Id="StartMenuShortcut" Directory="ProgramMenuFolder" Guid="D2F1C4A7-3B6E-4E0A-9C5D-7A8B1E2F3C40">
+        <Shortcut Name="FKeyIME settings" Target="[#SettingsExe]" WorkingDirectory="INSTALLFOLDER"
+                  Description="Report an issue, copy system details" />
+        <RegistryValue Root="HKCU" Key="Software\fkeyime\installer" Name="StartMenuShortcut"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+      <Component Directory="INSTALLFOLDER" Bitness="always64">
+        <File Source="$(var.SourceDir)\LICENSE" Name="LICENSE.txt" />
+      </Component>
+      <Component Directory="MOZCFOLDER" Bitness="always64">
+        <File Source="$(var.BuildDir)\mozc\fkeyime_mozc_server.exe" />
+      </Component>
+      <!-- Log folder: the TIP and the per-user setup write there; Store apps too (icacls below). -->
+      <Component Id="DataFolder" Directory="DATAFOLDER" Guid="6E1A9C83-5B0B-4C4E-9F2E-6A5C1D5E0B11">
+        <CreateFolder />
+      </Component>
+      <Component Directory="INSTALLFOLDER" Condition="MACLANGKEYS = 1" Bitness="always64">
+        <RegistryValue Root="HKLM" Key="Software\fkeyime" Name="MacLangKeys" Type="integer"
+                       Value="1" KeyPath="yes" />
+      </Component>
+    </Feature>
+
+    <!-- regsvr32 runs DllRegisterServer: COM class, the 3 TSF profiles, the categories. -->
+    <SetProperty Id="RegisterX64" Value="&quot;[System64Folder]regsvr32.exe&quot; /s &quot;[X64FOLDER]fkeyime.dll&quot;" Before="RegisterX64" Sequence="execute" />
+    <SetProperty Id="RegisterX86" Value="&quot;[SystemFolder]regsvr32.exe&quot; /s &quot;[X86FOLDER]fkeyime.dll&quot;" Before="RegisterX86" Sequence="execute" />
+    <SetProperty Id="UnregisterX64" Value="&quot;[System64Folder]regsvr32.exe&quot; /s /u &quot;[X64FOLDER]fkeyime.dll&quot;" Before="UnregisterX64" Sequence="execute" />
+    <SetProperty Id="UnregisterX86" Value="&quot;[SystemFolder]regsvr32.exe&quot; /s /u &quot;[X86FOLDER]fkeyime.dll&quot;" Before="UnregisterX86" Sequence="execute" />
+    <SetProperty Id="DataFolderAcl" Value="&quot;[System64Folder]icacls.exe&quot; &quot;[DATAFOLDER].&quot; /grant *S-1-15-2-1:(OI)(CI)M *S-1-5-32-545:(OI)(CI)M" Before="DataFolderAcl" Sequence="execute" />
+
+    <CustomAction Id="RegisterX64" DllEntry="WixQuietExec64" BinaryRef="Wix4UtilCA_X64" Execute="deferred" Impersonate="no" Return="check" />
+    <CustomAction Id="RegisterX86" DllEntry="WixQuietExec64" BinaryRef="Wix4UtilCA_X64" Execute="deferred" Impersonate="no" Return="check" />
+    <CustomAction Id="UnregisterX64" DllEntry="WixQuietExec64" BinaryRef="Wix4UtilCA_X64" Execute="deferred" Impersonate="no" Return="ignore" />
+    <CustomAction Id="UnregisterX86" DllEntry="WixQuietExec64" BinaryRef="Wix4UtilCA_X64" Execute="deferred" Impersonate="no" Return="ignore" />
+    <CustomAction Id="DataFolderAcl" DllEntry="WixQuietExec64" BinaryRef="Wix4UtilCA_X64" Execute="deferred" Impersonate="no" Return="ignore" />
+    <!-- As the signed-in user: the language list and the default input method are per user. -->
+    <CustomAction Id="UserInstall" FileRef="SettingsExe" ExeCommand="--user-install" Execute="deferred" Impersonate="yes" Return="ignore" />
+    <CustomAction Id="UserUninstall" FileRef="SettingsExe" ExeCommand="--user-uninstall" Execute="deferred" Impersonate="yes" Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="UserUninstall" After="InstallInitialize" Condition="REMOVE = &quot;ALL&quot;" />
+      <Custom Action="UnregisterX64" After="UserUninstall" Condition="REMOVE = &quot;ALL&quot;" />
+      <Custom Action="UnregisterX86" After="UnregisterX64" Condition="REMOVE = &quot;ALL&quot;" />
+      <Custom Action="DataFolderAcl" After="InstallFiles" Condition="NOT REMOVE = &quot;ALL&quot;" />
+      <Custom Action="RegisterX64" After="DataFolderAcl" Condition="NOT REMOVE = &quot;ALL&quot;" />
+      <Custom Action="RegisterX86" After="RegisterX64" Condition="NOT REMOVE = &quot;ALL&quot;" />
+      <Custom Action="UserInstall" After="RegisterX86" Condition="NOT REMOVE = &quot;ALL&quot;" />
+    </InstallExecuteSequence>
+
+    <!-- Final page (owner, 2026-10-17). -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT"
+              Value="FKeyIME is installed. Apps that were already open start using it after you restart them.&#xA;&#xA;Found a problem? Report it at the FKeyIME GitHub repository: github.com/themrsung/fkeyime/issues. The developer will try to fix it if possible. The FKeyIME settings window (Start menu) can copy the system details for your report." />
+
+    <UI Id="FKeyImeUI">
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Segoe UI" Size="9" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Segoe UI" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Segoe UI" Size="9" Bold="yes" />
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
+
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999" />
+
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="HhkbDlg" Condition="NOT Installed" />
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Condition="Installed AND PATCH" />
+
+      <Publish Dialog="HhkbDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" />
+      <!-- "No" clears the Mac keys choice, so going back and forth can't leave it on. -->
+      <Publish Dialog="HhkbDlg" Control="Next" Property="MACLANGKEYS" Value="{}" Condition="HHKBSTUDIO &lt;&gt; &quot;1&quot;" />
+      <Publish Dialog="HhkbDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="2" />
+
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="HhkbDlg" Condition="NOT Installed" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Condition="Installed AND NOT PATCH" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Condition="Installed AND PATCH" />
+
+      <Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="RepairButton" Event="NewDialog" Value="VerifyReadyDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="RemoveButton" Event="NewDialog" Value="VerifyReadyDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="Back" Event="NewDialog" Value="MaintenanceWelcomeDlg" />
+
+      <!-- "Do you have an HHKB Studio?" (owner, 2026-10-17; docs/spec.md, section 7, item 6). -->
+      <Dialog Id="HhkbDlg" Width="370" Height="270" Title="!(loc.WelcomeDlg_Title)">
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="!(loc.InstallDirDlgBannerBitmap)" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Your keyboard" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="FKeyIME is switched with F18 / F19 / F20." />
+        <Control Id="Question" Type="Text" X="20" Y="56" Width="330" Height="15" NoPrefix="yes" Text="Do you have an HHKB Studio?" />
+        <Control Id="Answer" Type="RadioButtonGroup" X="20" Y="74" Width="330" Height="34" Property="HHKBSTUDIO">
+          <RadioButtonGroup Property="HHKBSTUDIO">
+            <RadioButton Value="0" X="0" Y="0" Width="330" Height="15" Text="No" />
+            <RadioButton Value="1" X="0" Y="17" Width="330" Height="15" Text="Yes" />
+          </RadioButtonGroup>
+        </Control>
+        <Control Id="MacKeys" Type="CheckBox" X="35" Y="114" Width="315" Height="15" Property="MACLANGKEYS" CheckBoxValue="1"
+                 Text="Use the Mac Eisu and Kana keys (keymap Profile1)" HideCondition="HHKBSTUDIO &lt;&gt; &quot;1&quot;" ShowCondition="HHKBSTUDIO = &quot;1&quot;" />
+        <Control Id="MacKeysText" Type="Text" X="49" Y="132" Width="301" Height="70" NoPrefix="yes"
+                 HideCondition="HHKBSTUDIO &lt;&gt; &quot;1&quot;" ShowCondition="HHKBSTUDIO = &quot;1&quot;"
+                 Text="For the Studio's macOS keymap (Profile1), used on Windows as it is: Eisu switches to English, Kana to Japanese, and the F18 key to Korean. That keymap has no F17 (Hanja, transient romaji, transient Caps Lock), which typing doesn't need. Leave it off if you also use a Korean keyboard: its Hanja and Han/Yeong keys send the same codes." />
+        <Control Id="Note" Type="Text" X="20" Y="206" Width="330" Height="20" NoPrefix="yes" Text="Off by default. You can change it later by reinstalling." />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+    </UI>
+    <UIRef Id="WixUI_Common" />
+  </Package>
+</Wix>

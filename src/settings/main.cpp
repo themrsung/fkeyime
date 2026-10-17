@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "system_details.h"
+#include "user_setup.h"
 #include "version.h"
 
 namespace {
@@ -105,6 +106,9 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wparam, LPARAM lpa
 }  // namespace
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR command_line, int show) {
+    // Run by the MSI as the signed-in user (installer/Product.wxs).
+    if (!wcscmp(command_line, L"--user-install")) return fkeyime::settings::UserInstall();
+    if (!wcscmp(command_line, L"--user-uninstall")) return fkeyime::settings::UserUninstall();
     // Testing: "--details <file>" / "--details-ahk <file>" writes the text instead of copying.
     for (const auto& [flag, ahk] : {std::pair{L"--details-ahk ", true}, {L"--details ", false}}) {
         if (wcsncmp(command_line, flag, wcslen(flag)) != 0) continue;

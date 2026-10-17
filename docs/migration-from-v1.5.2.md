@@ -137,6 +137,13 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Installer, first version (not tested on a PC yet).** `installer/build.ps1` builds
+  `fkeyime-0.0.1-x64.msi`: it installs FKeyIME into Program Files, adds FKeyIME EN / KO / JA to
+  your language list (the Microsoft IMEs stay), asks "Do you have an HHKB Studio?" for the Mac
+  keys, and ends with where to report problems. Steps 3–4 keep their ⏳ until it's been installed
+  and measured. Also: Windows Settings doesn't list FKeyIME under the keyboards yet
+  (`docs/issues/settings-doesnt-list-fkeyime.md`); open its settings from the Start menu.
+
 - **Settings window.** FKeyIME has a small settings window (`fkeyime-settings.exe`): **Report an
   issue** opens the GitHub issues page, **Copy system details** copies what an issue report
   needs, and asks first before including your AutoHotkey version and running scripts. Nothing is
