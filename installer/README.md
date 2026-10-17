@@ -19,7 +19,7 @@ What `Package.wxs` does:
 
 Tested in Windows Sandbox (`sandbox/`, 2026-10-18, 24H2): install and uninstall succeed
 without a restart; uninstall removes the files, both registrations, the option, the Start-menu
-shortcut, FKeyIME's keyboards and the default override. Left behind: `ProgramDatakeyime`
+shortcut, FKeyIME's keyboards and the default override. Left behind: `ProgramData\fkeyime`
 (its logs), and a language the install added (Korean with the Microsoft IME).
 
 Not done yet (`docs/spec.md`, section 7): the device / system page, removing the Microsoft

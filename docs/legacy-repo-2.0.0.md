@@ -149,6 +149,8 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Typo fix in installer/README.md.** No change for the 2.0.0 work.
+
 - **Installer tested in Windows Sandbox.** Clean install and uninstall, no restart; Settings lists
   FKeyIME after an MSI install (no keyboard-options button yet). Readiness gate unchanged
   (unsigned, no device page, not tested on a real PC).

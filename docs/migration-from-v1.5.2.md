@@ -137,6 +137,8 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Typo fix in installer/README.md.** No user-visible change.
+
 - **Installer tested in Windows Sandbox.** Install and uninstall work without a restart, the
   wizard passes the HHKB Studio answer through, the final page's text is shorter (it was cut
   off), and the default input method is now really set to FKeyIME EN (it wasn't). Windows
