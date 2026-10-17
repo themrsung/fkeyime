@@ -25,19 +25,26 @@ menu, where the owner picks it.)*
 | `IconFile`, `IconIndex` | `imkrtip.dll`, 0 | `fkeyime.dll` (x86), 0: **the DLL has no icon resource** |
 | `Enable` | 0 | 1 |
 
+## What was tried (2026-10-18, each followed by reopening the Settings page and reading it)
+
+| Change | Registry after | Settings lists FKeyIME KO? |
+| --- | --- | --- |
+| Display name: `SetLanguageProfileDisplayName` with a string resource, and an icon in the DLL (`fkeyime.rc`) | `Display Description = @…keyime.dll,-202`, `IconFile` with a real icon | No |
+| No substitute layout (every profile used to name the Japanese 0x04110411) | `SubstituteLayout` gone | No |
+| Per-user registration with Windows' `InstallLayoutOrTip` (the MSI's `--user-install` step) for the three profiles | returns success; no per-user `HKCU\Software\Microsoft\CTF\TIP` entry appears for FKeyIME (the Microsoft IMEs have one with `Enable = 1`, being disabled machine-wide) | No |
+
+All three changes are kept: they match how Mozc's TIP registers (`third_party/mozc/src/win32/base/tsf_registrar.cc`:
+same categories, a display name, an icon index), they're harmless, and the substitute layout had
+no effect on typing (M0). Typing hasn't been re-measured since, though.
+
 ## Cause
 
-Not known. Hypotheses, untested: Settings shows only profiles with a `Display Description`
-(set by `ITfInputProcessorProfiles::SetLanguageProfileDisplayName`, an MUI string resource), or
-only profiles whose icon loads.
+Not known. FKeyIME's registration now matches Mozc's step for step. Open question: does this
+Windows 11 build (25H2, 26200) list **any** third-party IME's keyboards in Settings? Test it by
+installing another one, for example `Mozc64.msi` from M0 (`docs/toolchain.md`), in a VM.
 
 ## Workaround
 
 Open the settings window from the Start menu ("FKeyIME settings", added by the MSI) or run
 `fkeyime-settings.exe` from the install folder. `ITfFnConfigure::Show` itself works (measured
 through COM).
-
-## Next steps
-
-Give the DLL an icon and string resources, register a display name per profile, and check
-the Settings page again (VM first if possible).

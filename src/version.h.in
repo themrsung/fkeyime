@@ -2,5 +2,7 @@
 #pragma once
 
 #define FKEYIME_VERSION L"@PROJECT_VERSION@"
+#define FKEYIME_VERSION_A "@PROJECT_VERSION@"  // narrow, for the .rc VERSIONINFO
+#define FKEYIME_VERSION_NUMBERS @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
 #define FKEYIME_COMMIT L"@FKEYIME_COMMIT@"  // git commit at configure time, "unknown" outside git
 #define FKEYIME_ISSUES_URL L"https://github.com/themrsung/fkeyime/issues"

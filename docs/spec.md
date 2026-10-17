@@ -70,7 +70,9 @@ One TSF TIP (in-proc COM DLL, C++20) with **three language profiles** under one 
   with `TF_IPPMF_FORSESSION`). The switch takes about 5 ms, every other app follows within about
   25 ms, and the owner saw no overlay or flash *(measured, section 6)*.
 - **`hklSubstitute` does not give en-US/ko-KR the JIS layout** *(measured, section 6)*. The value
-  is stored in the registry, but Windows keeps each language's own layout.
+  is stored in the registry, but Windows keeps each language's own layout. Since 2026-10-18
+  FKeyIME registers **no** substitute layout (the table above records M0), and each profile has
+  a display name and icon from the DLL's resources (`docs/issues/settings-doesnt-list-fkeyime.md`).
 - **FKeyIME is its own IME and doesn't rely on Microsoft code for text** (owner, 2026-10-17;
   decides open question 8 as option (b)). In **every** mode it maps scan codes to characters
   with its own JIS table (letters, digits, symbols, ろ, ¥, and the kana table in Japanese) and

@@ -17,7 +17,9 @@ add_library(fkeyime_tip SHARED
     log.cpp
     registration.cpp
     text_service.cpp
-    fkeyime.def)
+    fkeyime.def
+    fkeyime.rc)
 set_target_properties(fkeyime_tip PROPERTIES OUTPUT_NAME fkeyime)
+target_include_directories(fkeyime_tip PRIVATE ${PROJECT_BINARY_DIR}/generated)
 target_link_libraries(fkeyime_tip PRIVATE fkeyime_core fkeyime_state fkeyime_mozc_client ole32
                                           advapi32 user32 gdi32)

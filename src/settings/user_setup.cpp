@@ -27,18 +27,27 @@ constexpr wchar_t kUserProfile[] = L"Control Panel\\International\\User Profile"
 void Log(const wchar_t* format, ...) {
     wchar_t path[MAX_PATH];
     if (!ExpandEnvironmentStringsW(L"%ProgramData%\\fkeyime\\setup.log", path, MAX_PATH)) return;
-    FILE* file = nullptr;
-    if (_wfopen_s(&file, path, L"a, ccs=UTF-8") || !file) return;
     SYSTEMTIME now;
     GetLocalTime(&now);
-    fwprintf(file, L"%04u-%02u-%02u %02u:%02u:%02u ", now.wYear, now.wMonth, now.wDay, now.wHour,
-             now.wMinute, now.wSecond);
+    wchar_t line[512];
+    int n = swprintf_s(line, L"%04u-%02u-%02u %02u:%02u:%02u ", now.wYear, now.wMonth, now.wDay,
+                       now.wHour, now.wMinute, now.wSecond);
     va_list args;
     va_start(args, format);
-    vfwprintf(file, format, args);
+    const int m = vswprintf_s(line + n, 512 - n - 2, format, args);
     va_end(args);
-    fputwc(L'\n', file);
-    fclose(file);
+    if (n < 0 || m < 0) return;
+    n += m;
+    line[n++] = L'\r';
+    line[n++] = L'\n';
+    char utf8[1536];
+    const int bytes = WideCharToMultiByte(CP_UTF8, 0, line, n, utf8, sizeof(utf8), nullptr, nullptr);
+    HANDLE file = CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                              OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return;
+    DWORD written;
+    WriteFile(file, utf8, static_cast<DWORD>(bytes), &written, nullptr);
+    CloseHandle(file);
 }
 
 int Call(const wchar_t* tips, DWORD flags) {

@@ -1,0 +1,39 @@
+// fkeyime.dll resources: icon, profile display names, version (UTF-8 source, see CMakeLists).
+#pragma code_page(65001)
+#include <winres.h>
+
+#include "resource.h"
+#include "version.h"
+
+IDI_FKEYIME ICON "fkeyime.ico"
+
+STRINGTABLE
+BEGIN
+    IDS_PROFILE_ENGLISH "FKeyIME EN"
+    IDS_PROFILE_KOREAN "FKeyIME KO"
+    IDS_PROFILE_JAPANESE "FKeyIME JA"
+END
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION FKEYIME_VERSION_NUMBERS
+PRODUCTVERSION FKEYIME_VERSION_NUMBERS
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_DLL
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "themrsung"
+            VALUE "FileDescription", "FKeyIME text input processor"
+            VALUE "FileVersion", FKEYIME_VERSION_A
+            VALUE "ProductName", "FKeyIME"
+            VALUE "ProductVersion", FKEYIME_VERSION_A
+            VALUE "LegalCopyright", "BSD-3-Clause"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

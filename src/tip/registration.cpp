@@ -7,6 +7,7 @@
 #include <cwchar>
 
 #include "guids.h"
+#include "resource.h"
 
 using Microsoft::WRL::ComPtr;
 
@@ -17,12 +18,13 @@ struct ProfileInfo {
     const GUID* profile;
     LANGID langid;
     const wchar_t* description;
+    UINT display_name;  // string resource: the name Windows Settings shows
 };
 
 constexpr ProfileInfo kProfiles[] = {
-    {&kProfileEnglish, kLangIdEnglish, L"FKeyIME EN"},
-    {&kProfileKorean, kLangIdKorean, L"FKeyIME KO"},
-    {&kProfileJapanese, kLangIdJapanese, L"FKeyIME JA"},
+    {&kProfileEnglish, kLangIdEnglish, L"FKeyIME EN", IDS_PROFILE_ENGLISH},
+    {&kProfileKorean, kLangIdKorean, L"FKeyIME KO", IDS_PROFILE_KOREAN},
+    {&kProfileJapanese, kLangIdJapanese, L"FKeyIME JA", IDS_PROFILE_JAPANESE},
 };
 
 // What the TIP claims to support. Immersive support lets Store apps load it.
@@ -90,15 +92,34 @@ HRESULT RegisterProfiles(HINSTANCE module) {
                                   IID_PPV_ARGS(&manager));
     if (FAILED(hr)) return hr;
 
+    // ITfInputProcessorProfilesEx sets the display name ("Display Description", an MUI string)
+    // that Windows Settings shows (docs/issues/settings-doesnt-list-fkeyime.md).
+    ComPtr<ITfInputProcessorProfilesEx> profiles;
+    hr = manager.As(&profiles);
+    if (FAILED(hr)) return hr;
+
+    // The DLL's own icon (IDI_FKEYIME, the first icon: index 0) and string table.
     wchar_t icon[MAX_PATH];
     const DWORD icon_length = GetModuleFileNameW(module, icon, MAX_PATH);
     for (const ProfileInfo& p : kProfiles) {
-        // Every profile substitutes the Japanese 106/109 layout, so the symbols match the JIS
-        // keycaps in every mode (docs/spec.md, "Architecture").
-        hr = manager->RegisterProfile(
-            kClsidTextService, p.langid, *p.profile, p.description,
-            static_cast<ULONG>(wcslen(p.description)), icon, icon_length, 0,
-            reinterpret_cast<HKL>(static_cast<ULONG_PTR>(kHklJapanese)), 0, TRUE, 0);
+        // No substitute layout. Windows ignores one for typing (M0, docs/spec.md section 6.2:
+        // FKeyIME types the JIS symbols from its own table), and the Japanese one that every
+        // profile used to name is the suspect for Settings not listing FKeyIME KO and EN.
+        hr = manager->RegisterProfile(kClsidTextService, p.langid, *p.profile, p.description,
+                                      static_cast<ULONG>(wcslen(p.description)), icon,
+                                      icon_length, 0, nullptr, 0, TRUE, 0);
+        if (FAILED(hr)) return hr;
+        // RegisterProfile keeps a value from an older registration: remove it.
+        wchar_t clsid[39];
+        wchar_t profile[39];
+        StringFromGUID2(kClsidTextService, clsid, ARRAYSIZE(clsid));
+        StringFromGUID2(*p.profile, profile, ARRAYSIZE(profile));
+        wchar_t key[160];
+        swprintf_s(key, L"SOFTWARE\\Microsoft\\CTF\\TIP\\%s\\LanguageProfile\\0x%08x\\%s", clsid,
+                   p.langid, profile);
+        RegDeleteKeyValueW(HKEY_LOCAL_MACHINE, key, L"SubstituteLayout");
+        hr = profiles->SetLanguageProfileDisplayName(kClsidTextService, p.langid, *p.profile, icon,
+                                                     icon_length, p.display_name);
         if (FAILED(hr)) return hr;
     }
     return S_OK;

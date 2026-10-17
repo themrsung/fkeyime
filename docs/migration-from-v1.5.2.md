@@ -137,6 +137,11 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Registration cleanup.** FKeyIME's keyboards now have a display name and an icon, and no
+  longer name a substitute layout. Windows Settings still doesn't list them under the
+  languages (`docs/issues/settings-doesnt-list-fkeyime.md`); the Start-menu shortcut opens the
+  settings window. No change to typing (not re-measured).
+
 - **Installer, first version (not tested on a PC yet).** `installer/build.ps1` builds
   `fkeyime-0.0.1-x64.msi`: it installs FKeyIME into Program Files, adds FKeyIME EN / KO / JA to
   your language list (the Microsoft IMEs stay), asks "Do you have an HHKB Studio?" for the Mac

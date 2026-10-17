@@ -149,6 +149,10 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Registration cleanup.** Display names and an icon for the three profiles, no substitute
+  layout. The "Settings doesn't list FKeyIME" issue is still open: in `04-fkeyime.md`, point
+  users to the Start-menu "FKeyIME settings" rather than Windows Settings. Still not ready.
+
 - **Installer, first version.** An MSI builds and passes ICE validation, not yet installed on a
   PC, unsigned, without the device page or the IME-removal choice. Readiness gate unchanged (no
   signed, tagged MSI). Known issue for `04-fkeyime.md`: Windows Settings doesn't list FKeyIME's
