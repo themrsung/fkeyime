@@ -3,12 +3,16 @@
 ; hhkb-ekj-trilingual (Windows): one-way language keys sent by the HHKB Studio, keymap Profile 4.
 ;   F18 -> Korean (한)   F19 -> English (Japanese IME off)   F20 -> Japanese hiragana, kana typing
 ;   F17 -> 한자 in Korean, nothing elsewhere   Pause (Fn1+P) -> Media Play/Pause
-; FKeyIME-aware: while FKeyIME is the input method of the focused window, F17-F20 are left alone
-; and pass straight through to it (FKeyIME API v1, https://github.com/themrsung/fkeyime docs/api.md).
+; FKeyIME-aware (https://github.com/themrsung/fkeyime docs/api.md). Win+Space picks who handles
+; the language keys:
+;   - FKeyIME is the session's input method: this script steps aside. A window that isn't on
+;     FKeyIME yet is moved to it, and the key is sent again for FKeyIME to handle.
+;   - A Microsoft IME is the session's input method: the keys work as in v1.5.2.
 ; Without FKeyIME installed, this behaves exactly like the hhkb-ekj-trilingual v1.5.2 script.
 
 HKL_KO := 0x04120412, LANG_KO := 0x0412
 HKL_JA := 0x04110411, LANG_JA := 0x0411
+LANG_EN := 0x0409
 
 ; IME conversion-mode bits (imm.h)
 CM_NATIVE := 0x01, CM_KATAKANA := 0x02, CM_FULLSHAPE := 0x08, CM_ROMAN := 0x10
@@ -20,12 +24,22 @@ JAPANESE := {hkl: HKL_JA, lang: LANG_JA, open: 1, cmode: CM_NATIVE | CM_FULLSHAP
            , mask: CM_NATIVE | CM_KATAKANA | CM_FULLSHAPE | CM_ROMAN}
 
 FKEYIME_CLSID := "{66749D2A-1770-43D3-A269-A051B5BC1AAA}"
+FKEYIME_EN := "{8F61A2C0-75BC-4042-B739-CC7D63B542E5}"
+FKEYIME_KO := "{28C201BF-390E-482F-8259-CD26E05844A9}"
+FKEYIME_JA := "{1AC13F3E-07AC-4B03-A606-967BD48BFD99}"
 ; The Microsoft IMEs these targets mean (language, CLSID, profile), for UseMicrosoftIme().
 KOREAN.tip   := [LANG_KO, "{A028AE76-01B1-46C2-99C4-ACD9858AE02F}", "{B5FE1F02-D5F2-4445-9C03-C568F23C99A1}"]
 ENGLISH.tip  := [LANG_JA, "{03B5835F-F03C-411B-9CE2-AA23E1171E36}", "{A76C93D9-5523-4E90-AAFA-4DB112F9AC76}"]
 JAPANESE.tip := ENGLISH.tip
 
-#HotIf !FKeyImeActive()
+; FKeyIME chosen, but this window isn't on it yet: move it there and let FKeyIME have the key.
+#HotIf !FKeyImeActive() && FKeyImeSession()
+F16::ToFKeyIme("F16", LANG_JA, FKEYIME_JA)
+F18::ToFKeyIme("F18", LANG_KO, FKEYIME_KO)
+F19::ToFKeyIme("F19", LANG_EN, FKEYIME_EN)
+F20::ToFKeyIme("F20", LANG_JA, FKEYIME_JA)
+; A Microsoft IME chosen: v1.5.2's switching.
+#HotIf !FKeyImeActive() && !FKeyImeSession()
 F18::SwitchTo(KOREAN)
 F19::SwitchTo(ENGLISH)
 F20::SwitchTo(JAPANESE)
@@ -45,16 +59,48 @@ FKeyImeActive() {
         return false                            ; DLL missing or without the API: act as before
 }
 
+; ITfInputProcessorProfileMgr, for reading and choosing the session's input method.
+ProfileMgr() {
+    static mgr := ComObject("{33C53A50-F456-4884-B049-85FD643ECFED}", "{71C6E74C-0F28-11D8-A82A-00065B84435C}")
+    return mgr
+}
+
+Guid(text) {
+    g := Buffer(16)
+    DllCall("ole32\CLSIDFromString", "str", text, "ptr", g)
+    return g
+}
+
+; True when the session's input method (what Win+Space last chose) is FKeyIME. This thread has no
+; text input of its own, so it sees the session's choice (measured: it follows session changes).
+FKeyImeSession() {
+    static keyboard := Guid("{34745C63-B2F0-4784-8B67-5E12C8701A31}")  ; GUID_TFCAT_TIP_KEYBOARD
+    static fkeyime := Guid(FKEYIME_CLSID)
+    profile := Buffer(96, 0)                    ; TF_INPUTPROCESSORPROFILE; clsid at offset 8
+    try ComCall(10, ProfileMgr(), "ptr", keyboard, "ptr", profile)  ; GetActiveProfile
+    catch
+        return false
+    return DllCall("ntdll\RtlCompareMemory", "ptr", profile.Ptr + 8, "ptr", fkeyime, "uptr", 16
+                 , "uptr") = 16
+}
+
+; Selects one of FKeyIME's profiles for the whole session (which moves this window too), waits for
+; FKeyIME to be active here, and sends the key again so FKeyIME applies its own rules to it.
+ToFKeyIme(key, lang, profile) {
+    try ComCall(3, ProfileMgr(), "uint", 1, "ushort", lang, "ptr", Guid(FKEYIME_CLSID)  ; ActivateProfile
+              , "ptr", Guid(profile), "ptr", 0, "uint", 0x20000004)  ; FORSESSION | DONTCARECURRENTINPUTLANGUAGE
+    deadline := A_TickCount + 300
+    while !FKeyImeActive() && A_TickCount < deadline
+        Sleep(10)
+    if FKeyImeActive()
+        SendEvent("{" key "}")
+}
+
 ; A language change picks that language's last-used input method, which can be FKeyIME's. Select
 ; the Microsoft IME explicitly instead (ITfInputProcessorProfileMgr::ActivateProfile, whole session).
 UseMicrosoftIme(t) {
-    clsid := Buffer(16), profile := Buffer(16)
-    DllCall("ole32\CLSIDFromString", "str", t.tip[2], "ptr", clsid)
-    DllCall("ole32\CLSIDFromString", "str", t.tip[3], "ptr", profile)
-    mgr := ComObject("{33C53A50-F456-4884-B049-85FD643ECFED}", "{71C6E74C-0F28-11D8-A82A-00065B84435C}")
-    ; ActivateProfile(TF_PROFILETYPE_INPUTPROCESSOR, langid, clsid, profile, hkl, TF_IPPMF_FORSESSION)
-    try ComCall(3, mgr, "uint", 1, "ushort", t.tip[1], "ptr", clsid, "ptr", profile, "ptr", 0
-              , "uint", 0x20000000)
+    try ComCall(3, ProfileMgr(), "uint", 1, "ushort", t.tip[1], "ptr", Guid(t.tip[2])
+              , "ptr", Guid(t.tip[3]), "ptr", 0, "uint", 0x20000000)  ; FORSESSION
 }
 
 SwitchTo(t) {

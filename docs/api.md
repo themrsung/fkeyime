@@ -59,10 +59,17 @@ session's table. FKeyIME there wouldn't be reported, and the API answers `-1`.
 ## AutoHotkey example
 
 The whole script is in [`examples/autohotkey/hhkb-ekj-trilingual.ahk`](../examples/autohotkey/hhkb-ekj-trilingual.ahk):
-v1.5.2's script plus three changes.
+v1.5.2's script plus these changes. **Win+Space decides** who handles the language keys: the
+script reads the session's input method (`ITfInputProcessorProfileMgr::GetActiveProfile` from
+its own thread, which follows the session *(measured)*).
 
-1. The F-key hotkeys sit under `#HotIf !FKeyImeActive()`. While FKeyIME is active they're off, and
-   the keys pass straight through to FKeyIME.
+| Focused window | Session's input method | F16-F20 |
+| --- | --- | --- |
+| FKeyIME active | any | Pass straight through to FKeyIME |
+| Not on FKeyIME | FKeyIME | The script selects FKeyIME's profile for the key (whole session, which moves this window), waits until FKeyIME is active here, and sends the key again for FKeyIME to handle |
+| Not on FKeyIME | a Microsoft IME | v1.5.2's switching |
+
+1. Whether FKeyIME is active in the focused window comes from the API:
 
    ```autohotkey
    FKeyImeActive() {
@@ -75,11 +82,16 @@ v1.5.2's script plus three changes.
    }
    ```
 
-2. When the script switches language, Windows picks that language's **last-used** input method,
-   which can be FKeyIME's. If FKeyIME is active right after the switch, the script selects the
-   Microsoft IME explicitly (`ITfInputProcessorProfileMgr::ActivateProfile`, whole session).
-   Without this, the first F-key after leaving FKeyIME landed back in FKeyIME *(measured)*.
+2. With a Microsoft IME chosen, a language switch picks that language's **last-used** input
+   method, which can be FKeyIME's. If FKeyIME is active right after the switch, the script
+   selects the Microsoft IME explicitly (whole session). Without this, the first F-key after
+   leaving FKeyIME landed back in FKeyIME *(measured)*.
 3. The 150 ms check counts "FKeyIME is active" as a failed switch, so the retry runs.
+
+The first version (before the session check) let one F-key in a window without FKeyIME pull the
+whole session back to the Microsoft IMEs, after which every window stayed there and the script
+kept taking the keys (reported by the owner; FKeyIME never loaded in Notepad, Claude, Opera or
+Edge again). The session check fixes that: only Win+Space moves the session to Microsoft.
 
 Without FKeyIME installed, the script behaves exactly like v1.5.2's.
 
@@ -93,6 +105,7 @@ Without FKeyIME installed, the script behaves exactly like v1.5.2's.
 | FKeyIME active: F18, F19, F20, F16 × 50 | 200/200 reached FKeyIME (right profile), API right 200/200, none taken by AutoHotkey |
 | Microsoft Korean IME active | API says `-1` |
 | Microsoft IME active: F20, F18 × 50 | 100/100 handled by AutoHotkey (right language, Microsoft IME). FKeyIME was briefly selected once, on the first switch, and corrected |
+| Stuck window (session FKeyIME, window on the Microsoft IME): F18, then ㄱ ㅏ Enter, × 30 (session-check version) | 30/30: FKeyIME took over the window and typed 가. Same run: FKeyIME active 120/120, Microsoft chosen 60/60 to AutoHotkey |
 
 An earlier 50-round run gave 77/100 in the last phase. The owner reported a physical key press
 during one of the runs, most likely that one *(inferred)*. Runs since then: 60/60, 100/100,

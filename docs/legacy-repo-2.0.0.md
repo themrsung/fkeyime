@@ -65,7 +65,7 @@ Tell the user plainly: **choosing FKeyIME installs dependencies.** Path A has on
 | Japanese | Microsoft Japanese IME (cloud suggestions, MS user dictionary) | FKeyIME's own IME and kana table (F6/F7/F8 like macOS), with a bundled, renamed `mozc_server` for conversion only (Option B, decided): offline, different conversion, no MS dictionary |
 | F17 | 한자 in Korean only | Hanja / transient other Japanese input / transient Caps Lock |
 | F16 | Not used | Japanese with romaji input (needs a key set to F16; FKeyIME spec, open question 11) |
-| Both installed | — | Supported with the FKeyIME-aware AutoHotkey script: F-keys go to FKeyIME while it's the window's input method, otherwise to AutoHotkey. Win+Space picks |
+| Both installed | — | Supported with the FKeyIME-aware AutoHotkey script. Win+Space picks: with FKeyIME chosen, F-keys go to FKeyIME everywhere (windows still on a Microsoft IME are moved to it); with a Microsoft IME chosen, AutoHotkey switches as in v1.5.2 |
 | Consistency | Per-window language, can drift (`issues/windows-inconsistent-symbols.md`); 150 ms wait-and-retry | One global mode, no message posting or retries. M0 measured about 5 ms per switch, with every app following within about 25 ms (median) |
 | Elevated (admin) windows | Doesn't switch (UIPI) | Works |
 | Password fields, UAC, sign-in | Switches the language | F17–F20 do nothing |
@@ -139,6 +139,9 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **AutoHotkey script: Win+Space decides.** The "Both installed" row now describes the session
+  check. Copy the script at the FKeyIME release tag, not an older one: the first FKeyIME-aware
+  version could leave every window on the Microsoft IMEs. Still not ready.
 - **Diagnostic probe modes.** No change for the 2.0.0 work. Path A note: Hanja on the AutoHotkey
   path picked correctly in tests (digit, Enter, Down+Enter) in a Win32 Edit and in Notepad.
 - **Kanji conversion (development build).** Still not ready. The Dependencies row now names the

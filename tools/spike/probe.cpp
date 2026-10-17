@@ -10,12 +10,17 @@
 //   fkeyime_probe.exe --hanja | --hanja-rich | --hanja-fg
 //       Microsoft Korean IME Hanja through the AutoHotkey path (F18, 한, F17, then picking with a
 //       digit, Enter or Down+Enter), in the probe's control or the foreground window (--hanja-fg).
+//   fkeyime_probe.exe --active | --active-loop [s] | --passive [s] [ms] | --session-ko | --session-ms
+//       The session's input method, as a fresh thread / a long-lived windowless thread sees it;
+//       a plain window that never picks one (optionally starting on Microsoft's Korean IME);
+//       switch the whole session to FKeyIME KO or to the Microsoft Korean IME.
 //   fkeyime_probe.exe --keylog [seconds]
 //       Records key codes (no text) with a low-level hook, then the foreground control's text.
 //   fkeyime_probe.exe --handoff [rounds]
 //       FKeyIME API + AutoHotkey hand-off (docs/api.md): F18-F20 must reach FKeyIME while it's
-//       active, the API must report its mode, and with a Microsoft IME active the keys must go to
-//       AutoHotkey instead. Restores the session's input method at the end.
+//       active, the API must report its mode, with a Microsoft IME chosen the keys must go to
+//       AutoHotkey, and a window stuck on Microsoft's IME while the session is on FKeyIME must be
+//       taken over by FKeyIME on F18. Restores the session's input method at the end.
 #include <windows.h>
 #include <commctrl.h>
 #include <msctf.h>
@@ -328,7 +333,8 @@ int Handoff(int rounds) {
     ms.langid = 0x0412;
     ms.clsid = {0xa028ae76, 0x01b1, 0x46c2, {0x99, 0xc4, 0xac, 0xd9, 0x85, 0x8a, 0xe0, 0x2f}};
     ms.guidProfile = {0xb5fe1f02, 0xd5f2, 0x4445, {0x9c, 0x03, 0xc5, 0x68, 0xf2, 0x3c, 0x99, 0xa1}};
-    HRESULT hr = Activate(ms, TF_IPPMF_FORPROCESS);
+    // Chosen for the whole session, as Win+Space does: then AutoHotkey switches as in v1.5.2.
+    HRESULT hr = Activate(ms, TF_IPPMF_FORSESSION | TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE);
     Pump(300);
     std::wprintf(L"Microsoft Korean IME active (hr=%#lx): API says %d (expected -1)\n", hr,
                  query(g_edit));
@@ -367,10 +373,49 @@ int Handoff(int rounds) {
     std::wprintf(L"Microsoft IME active: %d presses, handled by AutoHotkey %d\n", ahk_total,
                  ahk_ok);
 
+    // 4. FKeyIME chosen for the session, but this window still on Microsoft's IME (stuck): F18
+    //    must bring FKeyIME into the window (AutoHotkey moves it and sends the key again), and
+    //    Korean must then type through FKeyIME.
+    TF_INPUTPROCESSORPROFILE fk = {};
+    fk.dwProfileType = TF_PROFILETYPE_INPUTPROCESSOR;
+    fk.langid = fkeyime::kLangIdEnglish;
+    fk.clsid = fkeyime::kClsidTextService;
+    fk.guidProfile = fkeyime::kProfileEnglish;
+    int stuck_ok = 0, stuck_total = 0;
+    for (int r = 0; r < rounds; ++r) {
+        Activate(fk, TF_IPPMF_FORSESSION | TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE);
+        Pump(200);
+        Activate(ms, TF_IPPMF_FORPROCESS);  // only this window goes back to Microsoft's IME
+        Pump(300);
+        const bool was_stuck = query(g_edit) < 0;
+        SetWindowTextW(g_edit, L"");
+        SendKey(VK_F18, 0x69);
+        Pump(600);
+        for (WORD scan : {WORD{0x13}, WORD{0x25}}) {  // ㄱ ㅏ
+            SendKey(0, scan, false, true);
+            Pump(60);
+        }
+        SendKey(VK_RETURN, 0x1c);
+        Pump(300);
+        wchar_t text[16] = L"";
+        GetWindowTextW(g_edit, text, 16);
+        const bool ok = was_stuck && query(g_edit) == 1 && !wcscmp(text, L"가");
+        stuck_ok += ok;
+        ++stuck_total;
+        if (!ok) {
+            std::wprintf(L"  round %d: was stuck %d, API now %d, text [%s]\n", r, was_stuck,
+                         query(g_edit), Escaped(text).c_str());
+        }
+    }
+    std::wprintf(L"Stuck window (session FKeyIME, window Microsoft): %d presses of F18, FKeyIME "
+                 L"took over and typed U+AC00 %d\n", stuck_total, stuck_ok);
+
     hr = Activate(g_prior, TF_IPPMF_FORSESSION);
     std::wprintf(L"restored the session's input method (hr=%#lx)\n", hr);
     FreeLibrary(dll);
-    return ok_profile == total && ok_api == total && ahk_ok == ahk_total ? 0 : 2;
+    return ok_profile == total && ok_api == total && ahk_ok == ahk_total && stuck_ok == stuck_total
+               ? 0
+               : 2;
 }
 
 // --typing: key sequences in each mode, checked against the text that lands in the Edit control.
@@ -565,6 +610,79 @@ int wmain(int argc, wchar_t** argv) {
     if (argc > 1 && !wcscmp(argv[1], L"--send")) return SendToForeground();
     if (argc > 1 && !wcscmp(argv[1], L"--hanja-fg")) return HanjaForeground();
     if (argc > 1 && !wcscmp(argv[1], L"--keylog")) return KeyLog(argc > 2 ? _wtoi(argv[2]) : 30);
+    if (argc > 1 && !wcscmp(argv[1], L"--passive")) {
+        // A plain window that never picks an input method itself, like an ordinary app: prints
+        // which one its thread has, once a second, so session-wide switches can be watched.
+        CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        HWND frame = CreateWindowExW(0, L"STATIC", L"FKeyIME passive probe",
+                                     WS_OVERLAPPEDWINDOW | WS_VISIBLE, 820, 200, 400, 120, nullptr,
+                                     nullptr, nullptr, nullptr);
+        g_edit = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER, 10, 10, 360, 30,
+                                 frame, nullptr, nullptr, nullptr);
+        SetFocus(g_edit);
+        const int seconds = argc > 2 ? _wtoi(argv[2]) : 10;
+        if (argc > 3 && !wcscmp(argv[3], L"ms")) {  // start like a window stuck on Microsoft's IME
+            TF_INPUTPROCESSORPROFILE ms = {};
+            ms.dwProfileType = TF_PROFILETYPE_INPUTPROCESSOR;
+            ms.langid = 0x0412;
+            ms.clsid = {0xa028ae76, 0x01b1, 0x46c2, {0x99, 0xc4, 0xac, 0xd9, 0x85, 0x8a, 0xe0, 0x2f}};
+            ms.guidProfile = {0xb5fe1f02, 0xd5f2, 0x4445, {0x9c, 0x03, 0xc5, 0x68, 0xf2, 0x3c, 0x99, 0xa1}};
+            std::wprintf(L"start on Microsoft Korean: hr=%#lx\n", Activate(ms, TF_IPPMF_FORPROCESS));
+        }
+        std::wprintf(L"hwnd %p\n", g_edit);
+        for (int i = 0; i < seconds; ++i) {
+            Pump(1000);
+            const TF_INPUTPROCESSORPROFILE p = ActiveProfile();
+            std::wprintf(L"%2d s: lang %04x fkeyime=%d hkl=%08IX\n", i + 1, p.langid,
+                         IsEqualGUID(p.clsid, fkeyime::kClsidTextService) != FALSE,
+                         reinterpret_cast<ULONG_PTR>(GetKeyboardLayout(0)));
+        }
+        DestroyWindow(frame);
+        return 0;
+    }
+    if (argc > 1 && !wcscmp(argv[1], L"--session-ms")) {  // whole session to Microsoft Korean IME
+        CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        TF_INPUTPROCESSORPROFILE ms = {};
+        ms.dwProfileType = TF_PROFILETYPE_INPUTPROCESSOR;
+        ms.langid = 0x0412;
+        ms.clsid = {0xa028ae76, 0x01b1, 0x46c2, {0x99, 0xc4, 0xac, 0xd9, 0x85, 0x8a, 0xe0, 0x2f}};
+        ms.guidProfile = {0xb5fe1f02, 0xd5f2, 0x4445, {0x9c, 0x03, 0xc5, 0x68, 0xf2, 0x3c, 0x99, 0xa1}};
+        std::wprintf(L"FORSESSION Microsoft Korean: hr=%#lx\n",
+                     Activate(ms, TF_IPPMF_FORSESSION | TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE));
+        return 0;
+    }
+    if (argc > 1 && !wcscmp(argv[1], L"--active-loop")) {  // a long-lived thread's view, like AHK
+        CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        const int seconds = argc > 2 ? _wtoi(argv[2]) : 10;
+        for (int i = 0; i < seconds; ++i) {
+            Pump(1000);
+            const TF_INPUTPROCESSORPROFILE p = ActiveProfile();
+            std::wprintf(L"%2d s (no window): lang %04x fkeyime=%d\n", i + 1, p.langid,
+                         IsEqualGUID(p.clsid, fkeyime::kClsidTextService) != FALSE);
+        }
+        return 0;
+    }
+    if (argc > 1 && !wcscmp(argv[1], L"--session-ko")) {  // switch the whole session to FKeyIME KO
+        CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        TF_INPUTPROCESSORPROFILE p = {};
+        p.dwProfileType = TF_PROFILETYPE_INPUTPROCESSOR;
+        p.langid = fkeyime::kLangIdKorean;
+        p.clsid = fkeyime::kClsidTextService;
+        p.guidProfile = fkeyime::kProfileKorean;
+        std::wprintf(L"FORSESSION FKeyIME KO: hr=%#lx\n",
+                     Activate(p, TF_IPPMF_FORSESSION | TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE));
+        return 0;
+    }
+    if (argc > 1 && !wcscmp(argv[1], L"--active")) {  // the session's current input method
+        CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        const TF_INPUTPROCESSORPROFILE p = ActiveProfile();
+        wchar_t clsid[40] = L"", profile[40] = L"";
+        StringFromGUID2(p.clsid, clsid, 40);
+        StringFromGUID2(p.guidProfile, profile, 40);
+        std::wprintf(L"lang %04x clsid %s profile %s fkeyime=%d\n", p.langid, clsid, profile,
+                     IsEqualGUID(p.clsid, fkeyime::kClsidTextService) != FALSE);
+        return 0;
+    }
     const bool handoff = argc > 1 && !wcscmp(argv[1], L"--handoff");
     // --typing-rich: the same cases in a TSF-aware RichEdit instead of the IMM-based Edit.
     const bool rich = argc > 1 && (!wcscmp(argv[1], L"--typing-rich") || !wcscmp(argv[1], L"--hanja-rich"));

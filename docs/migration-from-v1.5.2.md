@@ -73,10 +73,10 @@ Every step changes the system. Do them in order, and keep the backups.
    Win+Space). Replace your script with
    [`examples/autohotkey/hhkb-ekj-trilingual.ahk`](../examples/autohotkey/hhkb-ekj-trilingual.ahk)
    from this repo (your backup from step 1 stays), then restart it:
-   `Stop-ScheduledTask hhkb-ekj-trilingual; Start-ScheduledTask hhkb-ekj-trilingual`. While
-   FKeyIME is the input method of the window you type in, the script lets F16–F20 through to
-   FKeyIME. With a Microsoft IME, it works exactly as in v1.5.2 (`api.md`, measured over 50
-   rounds: every key went to the right one). Without FKeyIME installed, it's the v1.5.2 script.
+   `Stop-ScheduledTask hhkb-ekj-trilingual; Start-ScheduledTask hhkb-ekj-trilingual`.
+   **Win+Space decides:** with FKeyIME chosen, F16–F20 go to FKeyIME everywhere (a window still
+   on a Microsoft IME is moved to FKeyIME). With a Microsoft IME chosen, the keys work exactly as
+   in v1.5.2 (`api.md`, measured). Without FKeyIME installed, it's the v1.5.2 script.
 
    **b. Stop AutoHotkey switching** (works today; for FKeyIME only):
 
@@ -125,6 +125,10 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **AutoHotkey script: Win+Space decides.** With FKeyIME chosen, the script no longer takes the
+  F-keys anywhere and moves windows still on a Microsoft IME to FKeyIME. Fixes: after one F-key in
+  a window without FKeyIME, every window stayed on the Microsoft IMEs and AutoHotkey kept taking
+  the keys. Update your copy of the script (step 2a).
 - **Diagnostic probe modes.** No user-visible change. A report of Hanja picks also typing the
   candidate number (Microsoft Korean IME through AutoHotkey, in Notepad) didn't reproduce with
   `fkeyime_probe.exe --hanja` / `--hanja-fg`, and went away; `--keylog` records key codes if it
