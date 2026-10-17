@@ -81,7 +81,7 @@ if ($Install) {
     $list = Get-WinUserLanguageList
     foreach ($tag in $tips.Keys) {
         $lang = $null
-        foreach ($l in $list) { if ($l.LanguageTag -eq $tag) { $lang = $l } }
+        foreach ($l in $list.ToArray()) { if ($l.LanguageTag -eq $tag) { $lang = $l } }
         if (-not $lang) {
             $lang = (New-WinUserLanguageList $tag)[0]
             $lang.InputMethodTips.Clear()

@@ -133,6 +133,7 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Spike install fix.** Development script only; no change for the 2.0.0 work. Still not ready.
 - **Renamed to FKeyIME** (was FKeyIDE). Use FKeyIME, `fkeyime` and `docs/windows/04-fkeyime.md`
   in the hhkb-ekj-trilingual changes, and link to `github.com/themrsung/fkeyime`. GUIDs
   unchanged. Still not ready.

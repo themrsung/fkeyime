@@ -113,6 +113,8 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Spike install fix.** `tools/spike.ps1 -Install` now really adds the three FKeyIME profiles to
+  the language list. Development only; no user-visible change. Still nothing to install.
 - **Renamed to FKeyIME** (was FKeyIDE; repo `themrsung/fkeyime`, old URL redirects). Only the
   name changed. Still nothing to install.
 - **Owner's decisions after M0.** FKeyIME types every character from its own JIS table in all
