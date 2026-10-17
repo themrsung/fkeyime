@@ -1,4 +1,4 @@
-# Configure, build and test FKeyIDE for each architecture.
+# Configure, build and test FKeyIME for each architecture.
 #   tools/build.ps1                    # x64 + x86, Debug
 #   tools/build.ps1 -Config Release
 #   tools/build.ps1 -Arch arm64          # forks only: needs the ARM64 MSVC tools; tests don't run on x64

@@ -1,9 +1,9 @@
-// M0 spike probe: measures FKeyIDE profile switching inside a plain Win32 Edit control.
+// M0 spike probe: measures FKeyIME profile switching inside a plain Win32 Edit control.
 //
 // For each F-key press it injects (SendInput), it records how long until the window gets
 // WM_INPUTLANGCHANGE and which HKL it reports, then types the JIS/US probe keys by scan code and
 // reads back what the Edit control received. Run it with the TIP registered (tools/spike.ps1).
-//   fkeyide_probe.exe [rounds]      (default 20 rounds of F18, F19, F20, F19)
+//   fkeyime_probe.exe [rounds]      (default 20 rounds of F18, F19, F20, F19)
 #include <windows.h>
 #include <commctrl.h>
 #include <msctf.h>
@@ -114,7 +114,7 @@ int SendToForeground() {
 int wmain(int argc, wchar_t** argv) {
     if (argc > 1 && !wcscmp(argv[1], L"--send")) return SendToForeground();
     const int rounds = argc > 1 ? _wtoi(argv[1]) : 20;
-    HWND frame = CreateWindowExW(0, L"STATIC", L"FKeyIDE probe", WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+    HWND frame = CreateWindowExW(0, L"STATIC", L"FKeyIME probe", WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                                  200, 200, 600, 200, nullptr, nullptr, nullptr, nullptr);
     g_edit = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER, 10, 10, 560, 30,
                              frame, nullptr, nullptr, nullptr);
@@ -122,18 +122,18 @@ int wmain(int argc, wchar_t** argv) {
     SetWindowSubclass(frame, LangChangeProc, 1, 0);
     SetWindowSubclass(g_edit, LangChangeProc, 1, 0);
 
-    // The TIP only sees keys while one of its profiles is active: start in FKeyIDE EN.
+    // The TIP only sees keys while one of its profiles is active: start in FKeyIME EN.
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     ITfInputProcessorProfileMgr* profiles = nullptr;
     HRESULT hr = CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr, CLSCTX_INPROC_SERVER,
                                   IID_PPV_ARGS(&profiles));
     if (SUCCEEDED(hr)) {
-        hr = profiles->ActivateProfile(TF_PROFILETYPE_INPUTPROCESSOR, fkeyide::kLangIdEnglish,
-                                       fkeyide::kClsidTextService, fkeyide::kProfileEnglish,
+        hr = profiles->ActivateProfile(TF_PROFILETYPE_INPUTPROCESSOR, fkeyime::kLangIdEnglish,
+                                       fkeyime::kClsidTextService, fkeyime::kProfileEnglish,
                                        nullptr, TF_IPPMF_FORPROCESS);
         profiles->Release();
     }
-    std::wprintf(L"activate FKeyIDE EN: hr=%#lx hkl=%08IX\n", hr,
+    std::wprintf(L"activate FKeyIME EN: hr=%#lx hkl=%08IX\n", hr,
                  reinterpret_cast<ULONG_PTR>(GetKeyboardLayout(0)));
 
     // A process started from a console doesn't always get the foreground. Ask for it.

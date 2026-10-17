@@ -1,6 +1,6 @@
 #include "mode_machine.h"
 
-namespace fkeyide {
+namespace fkeyime {
 namespace {
 
 Effect Activate(Mode mode) { return {.kind = Effect::Kind::kActivateProfile, .mode = mode}; }
@@ -65,4 +65,4 @@ Result OnFKey(const State& current, FKey key, bool has_modifiers, const Policy& 
     return {.eaten = false, .next = current};
 }
 
-}  // namespace fkeyide
+}  // namespace fkeyime

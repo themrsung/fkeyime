@@ -5,7 +5,7 @@
 #include <functional>
 #include <vector>
 
-namespace fkeyide::test {
+namespace fkeyime::test {
 
 struct Case {
     const char* name;
@@ -38,20 +38,20 @@ inline int RunAll() {
     return Failures() == 0 ? 0 : 1;
 }
 
-}  // namespace fkeyide::test
+}  // namespace fkeyime::test
 
-#define FKEYIDE_CAT2(a, b) a##b
-#define FKEYIDE_CAT(a, b) FKEYIDE_CAT2(a, b)
+#define FKEYIME_CAT2(a, b) a##b
+#define FKEYIME_CAT(a, b) FKEYIME_CAT2(a, b)
 #define TEST_CASE(name)                                                          \
-    static void FKEYIDE_CAT(test_, __LINE__)();                                  \
-    static ::fkeyide::test::Register FKEYIDE_CAT(reg_, __LINE__)(name,           \
-                                                                 FKEYIDE_CAT(test_, __LINE__)); \
-    static void FKEYIDE_CAT(test_, __LINE__)()
+    static void FKEYIME_CAT(test_, __LINE__)();                                  \
+    static ::fkeyime::test::Register FKEYIME_CAT(reg_, __LINE__)(name,           \
+                                                                 FKEYIME_CAT(test_, __LINE__)); \
+    static void FKEYIME_CAT(test_, __LINE__)()
 
 #define CHECK(expr)                                                              \
     do {                                                                         \
         if (!(expr)) {                                                           \
             std::printf("  %s:%d: CHECK(%s) failed\n", __FILE__, __LINE__, #expr); \
-            ++::fkeyide::test::Failures();                                       \
+            ++::fkeyime::test::Failures();                                       \
         }                                                                        \
     } while (0)

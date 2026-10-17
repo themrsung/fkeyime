@@ -7,7 +7,7 @@
 #include <cwchar>
 #include <iterator>
 
-namespace fkeyide::log {
+namespace fkeyime::log {
 namespace {
 
 const wchar_t* ExeName() {
@@ -39,7 +39,7 @@ long long NowUs() {
 
 void Write(const wchar_t* format, ...) {
     wchar_t path[MAX_PATH];
-    if (!ExpandEnvironmentStringsW(L"%ProgramData%\\fkeyide\\fkeyide.log", path, MAX_PATH)) return;
+    if (!ExpandEnvironmentStringsW(L"%ProgramData%\\fkeyime\\fkeyime.log", path, MAX_PATH)) return;
 
     wchar_t line[1024];
     int n = swprintf_s(line, L"%lld %lu %s ", NowUs(), GetCurrentProcessId(), ExeName());
@@ -66,4 +66,4 @@ void Write(const wchar_t* format, ...) {
     CloseHandle(file);
 }
 
-}  // namespace fkeyide::log
+}  // namespace fkeyime::log

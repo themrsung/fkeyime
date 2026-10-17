@@ -1,4 +1,4 @@
-// FKeyIDE mode logic: what F17-F20 do, independent of TSF.
+// FKeyIME mode logic: what F17-F20 do, independent of TSF.
 //
 // Pure C++ with no Windows headers, so it can be unit-tested on its own. The TIP feeds key
 // presses in and applies the returned effects (activate a profile, set Caps Lock, ...).
@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace fkeyide {
+namespace fkeyime {
 
 enum class Mode : std::uint8_t { kEnglish, kKorean, kJapanese };
 
@@ -54,4 +54,4 @@ struct Result {
 // (open question 5: modified F-keys stay unused).
 Result OnFKey(const State& current, FKey key, bool has_modifiers, const Policy& policy = {});
 
-}  // namespace fkeyide
+}  // namespace fkeyime

@@ -1,4 +1,4 @@
-# Check (and with -Install, install) everything needed to build FKeyIDE, then wire up the repo.
+# Check (and with -Install, install) everything needed to build FKeyIME, then wire up the repo.
 #   tools/bootstrap.ps1            # report only
 #   tools/bootstrap.ps1 -Install   # install what's missing with winget (may prompt for UAC)
 param([switch] $Install)

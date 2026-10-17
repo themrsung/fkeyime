@@ -1,5 +1,5 @@
-// The FKeyIDE text service: one COM object per thread that has TSF, activated by TSF for any of
-// the three FKeyIDE profiles.
+// The FKeyIME text service: one COM object per thread that has TSF, activated by TSF for any of
+// the three FKeyIME profiles.
 //
 // Milestone M0 spike: F17-F20 run through the mode machine (src/core) and F18/F19/F20 switch
 // profiles with ITfInputProcessorProfileMgr::ActivateProfile. No text is composed yet. Every
@@ -12,7 +12,7 @@
 
 #include "mode_machine.h"
 
-namespace fkeyide {
+namespace fkeyime {
 
 class TextService final : public ITfTextInputProcessorEx,
                           public ITfKeyEventSink,
@@ -66,10 +66,10 @@ private:
     Mode pending_mode_ = Mode::kEnglish;
     long long key_down_us_ = 0;  // when the last F-key arrived, for the latency log
 
-    // Spike options from HKLM\Software\fkeyide (tools/spike.ps1).
+    // Spike options from HKLM\Software\fkeyime (tools/spike.ps1).
     DWORD activate_flags_;
     bool defer_activation_ = false;
     bool preserve_keys_ = true;
 };
 
-}  // namespace fkeyide
+}  // namespace fkeyime

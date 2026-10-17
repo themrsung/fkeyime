@@ -1,3 +1,3 @@
 #include "check.h"
 
-int main() { return fkeyide::test::RunAll(); }
+int main() { return fkeyime::test::RunAll(); }

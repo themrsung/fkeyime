@@ -1,8 +1,8 @@
-add_library(fkeyide_tip SHARED
+add_library(fkeyime_tip SHARED
     dllmain.cpp
     log.cpp
     registration.cpp
     text_service.cpp
-    fkeyide.def)
-set_target_properties(fkeyide_tip PROPERTIES OUTPUT_NAME fkeyide)
-target_link_libraries(fkeyide_tip PRIVATE fkeyide_core ole32 advapi32 user32)
+    fkeyime.def)
+set_target_properties(fkeyime_tip PROPERTIES OUTPUT_NAME fkeyime)
+target_link_libraries(fkeyime_tip PRIVATE fkeyime_core ole32 advapi32 user32)

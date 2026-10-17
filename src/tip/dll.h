@@ -3,10 +3,10 @@
 
 #include <windows.h>
 
-namespace fkeyide {
+namespace fkeyime {
 
 HINSTANCE DllInstance();
 void DllAddRef();  // objects and server locks keep the DLL loaded (DllCanUnloadNow)
 void DllRelease();
 
-}  // namespace fkeyide
+}  // namespace fkeyime

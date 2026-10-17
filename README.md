@@ -1,4 +1,4 @@
-# FKeyIDE
+# FKeyIME
 
 One Windows IME for **English, Korean and Japanese** on a JIS **HHKB Studio**, switched with the
 **F keys**, which is where the name comes from:

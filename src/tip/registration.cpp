@@ -10,7 +10,7 @@
 
 using Microsoft::WRL::ComPtr;
 
-namespace fkeyide {
+namespace fkeyime {
 namespace {
 
 struct ProfileInfo {
@@ -20,9 +20,9 @@ struct ProfileInfo {
 };
 
 constexpr ProfileInfo kProfiles[] = {
-    {&kProfileEnglish, kLangIdEnglish, L"FKeyIDE EN"},
-    {&kProfileKorean, kLangIdKorean, L"FKeyIDE KO"},
-    {&kProfileJapanese, kLangIdJapanese, L"FKeyIDE JA"},
+    {&kProfileEnglish, kLangIdEnglish, L"FKeyIME EN"},
+    {&kProfileKorean, kLangIdKorean, L"FKeyIME KO"},
+    {&kProfileJapanese, kLangIdJapanese, L"FKeyIME JA"},
 };
 
 // What the TIP claims to support. Immersive support lets Store apps load it.
@@ -35,7 +35,7 @@ const GUID* const kCategories[] = {
     &GUID_TFCAT_TIPCAP_INPUTMODECOMPARTMENT,
 };
 
-constexpr wchar_t kDescription[] = L"FKeyIDE";
+constexpr wchar_t kDescription[] = L"FKeyIME";
 
 void ClsidKeyPath(wchar_t* path, size_t size) {
     wchar_t clsid[39];
@@ -137,4 +137,4 @@ HRESULT UnregisterCategories() {
     return S_OK;
 }
 
-}  // namespace fkeyide
+}  // namespace fkeyime

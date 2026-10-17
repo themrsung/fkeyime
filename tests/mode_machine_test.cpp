@@ -4,7 +4,7 @@
 
 #include "check.h"
 
-using namespace fkeyide;
+using namespace fkeyime;
 
 namespace {
 

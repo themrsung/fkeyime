@@ -1,9 +1,9 @@
-# M0 spike: install or remove the FKeyIDE TIP on this PC for measurements. Needs admin (it
+# M0 spike: install or remove the FKeyIME TIP on this PC for measurements. Needs admin (it
 # re-launches itself elevated). Development only; the MSI replaces this in M5.
 #   tools/spike.ps1 -Install [-Config Release]   copy, regsvr32 (x64 + x86), add the 3 profiles
 #                                                to the language list (stock IMEs stay)
 #   tools/spike.ps1 -Uninstall                   undo all of it, restore the language list
-#   tools/spike.ps1 -Option Defer=1              set a TIP option (HKLM\Software\fkeyide)
+#   tools/spike.ps1 -Option Defer=1              set a TIP option (HKLM\Software\fkeyime)
 #   tools/spike.ps1 -Log                         tail the TIP log
 param(
     [switch] $Install,
@@ -14,9 +14,9 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path "$PSScriptRoot\.."
-$dest = "$env:ProgramFiles\FKeyIDE-spike"
-$data = "$env:ProgramData\fkeyide"
-$optionsKey = 'HKLM:\Software\fkeyide'
+$dest = "$env:ProgramFiles\FKeyIME-spike"
+$data = "$env:ProgramData\fkeyime"
+$optionsKey = 'HKLM:\Software\fkeyime'
 $clsid = '{66749D2A-1770-43D3-A269-A051B5BC1AAA}'
 $tips = [ordered]@{
     'en-US' = "0409:$clsid{8F61A2C0-75BC-4042-B739-CC7D63B542E5}"
@@ -25,7 +25,7 @@ $tips = [ordered]@{
 }
 
 if ($Log) {
-    Get-Content "$data\fkeyide.log" -Tail 40 -Wait
+    Get-Content "$data\fkeyime.log" -Tail 40 -Wait
     return
 }
 
@@ -71,11 +71,11 @@ if ($Install) {
     # Program Files is readable by ALL APPLICATION PACKAGES, the user's Desktop isn't.
     foreach ($arch in 'x64', 'x86') {
         New-Item "$dest\$arch" -ItemType Directory -Force | Out-Null
-        Copy-Item "$root\build\$arch\src\tip\$Config\fkeyide.dll" "$dest\$arch\" -Force
+        Copy-Item "$root\build\$arch\src\tip\$Config\fkeyime.dll" "$dest\$arch\" -Force
     }
-    & "$env:SystemRoot\System32\regsvr32.exe" /s "$dest\x64\fkeyide.dll"
+    & "$env:SystemRoot\System32\regsvr32.exe" /s "$dest\x64\fkeyime.dll"
     if ($LASTEXITCODE) { throw "regsvr32 x64 failed ($LASTEXITCODE)" }
-    & "$env:SystemRoot\SysWOW64\regsvr32.exe" /s "$dest\x86\fkeyide.dll"
+    & "$env:SystemRoot\SysWOW64\regsvr32.exe" /s "$dest\x86\fkeyime.dll"
     if ($LASTEXITCODE) { throw "regsvr32 x86 failed ($LASTEXITCODE)" }
 
     $list = Get-WinUserLanguageList
@@ -111,8 +111,8 @@ if ($Uninstall) {
     }
     foreach ($arch in 'x64', 'x86') {
         $regsvr = if ($arch -eq 'x64') { 'System32' } else { 'SysWOW64' }
-        if (Test-Path "$dest\$arch\fkeyide.dll") {
-            & "$env:SystemRoot\$regsvr\regsvr32.exe" /s /u "$dest\$arch\fkeyide.dll"
+        if (Test-Path "$dest\$arch\fkeyime.dll") {
+            & "$env:SystemRoot\$regsvr\regsvr32.exe" /s /u "$dest\$arch\fkeyime.dll"
         }
     }
     # regsvr32 /u leaves the empty TSF category keys and (measured) the 32-bit CLSID key behind.

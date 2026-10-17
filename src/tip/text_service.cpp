@@ -9,7 +9,7 @@
 
 using Microsoft::WRL::ComPtr;
 
-namespace fkeyide {
+namespace fkeyime {
 namespace {
 
 // Preserved-key ids for F17-F20. Runtime only (never stored), unlike the GUIDs in guids.h.
@@ -22,7 +22,7 @@ constexpr GUID kPreservedKeys[] = {
 };
 
 constexpr UINT kMessageApply = WM_APP + 1;
-constexpr wchar_t kWindowClass[] = L"FKeyIDEMessageWindow";
+constexpr wchar_t kWindowClass[] = L"FKeyIMEMessageWindow";
 
 const wchar_t* ModeName(Mode mode) {
     switch (mode) {
@@ -61,7 +61,7 @@ bool HasModifiers() {
 DWORD ReadOption(const wchar_t* name, DWORD fallback) {
     DWORD value = 0;
     DWORD size = sizeof(value);
-    if (RegGetValueW(HKEY_LOCAL_MACHINE, L"Software\\fkeyide", name, RRF_RT_REG_DWORD, nullptr,
+    if (RegGetValueW(HKEY_LOCAL_MACHINE, L"Software\\fkeyime", name, RRF_RT_REG_DWORD, nullptr,
                      &value, &size) == ERROR_SUCCESS) {
         return value;
     }
@@ -320,4 +320,4 @@ STDMETHODIMP TextService::OnActivated(REFCLSID clsid, REFGUID profile, BOOL acti
     return S_OK;
 }
 
-}  // namespace fkeyide
+}  // namespace fkeyime

@@ -3,7 +3,7 @@
 
 #include <windows.h>
 
-namespace fkeyide {
+namespace fkeyime {
 
 HRESULT RegisterServer(HINSTANCE module);  // COM class: HKLM\Software\Classes\CLSID
 HRESULT RegisterProfiles(HINSTANCE module);
@@ -13,4 +13,4 @@ HRESULT UnregisterCategories();
 HRESULT UnregisterProfiles();
 HRESULT UnregisterServer();
 
-}  // namespace fkeyide
+}  // namespace fkeyime

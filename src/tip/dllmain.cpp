@@ -1,4 +1,4 @@
-// FKeyIDE TSF text input processor (in-proc COM server): DLL exports and the class factory.
+// FKeyIME TSF text input processor (in-proc COM server): DLL exports and the class factory.
 #include <windows.h>
 
 #include <new>
@@ -8,7 +8,7 @@
 #include "registration.h"
 #include "text_service.h"
 
-namespace fkeyide {
+namespace fkeyime {
 namespace {
 
 HINSTANCE g_module = nullptr;
@@ -60,38 +60,38 @@ HINSTANCE DllInstance() { return g_module; }
 void DllAddRef() { InterlockedIncrement(&g_refs); }
 void DllRelease() { InterlockedDecrement(&g_refs); }
 
-}  // namespace fkeyide
+}  // namespace fkeyime
 
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
     if (reason == DLL_PROCESS_ATTACH) {
-        fkeyide::g_module = instance;
+        fkeyime::g_module = instance;
         DisableThreadLibraryCalls(instance);
     }
     return TRUE;
 }
 
-STDAPI DllCanUnloadNow() { return fkeyide::g_refs ? S_FALSE : S_OK; }
+STDAPI DllCanUnloadNow() { return fkeyime::g_refs ? S_FALSE : S_OK; }
 
 STDAPI DllGetClassObject(REFCLSID clsid, REFIID riid, void** object) {
     if (!object) return E_INVALIDARG;
     *object = nullptr;
-    if (!IsEqualCLSID(clsid, fkeyide::kClsidTextService)) return CLASS_E_CLASSNOTAVAILABLE;
-    return fkeyide::g_factory.QueryInterface(riid, object);
+    if (!IsEqualCLSID(clsid, fkeyime::kClsidTextService)) return CLASS_E_CLASSNOTAVAILABLE;
+    return fkeyime::g_factory.QueryInterface(riid, object);
 }
 
 STDAPI DllUnregisterServer();
 
 // Development registration (regsvr32, as admin). The MSI replaces this in M5.
 STDAPI DllRegisterServer() {
-    HRESULT hr = fkeyide::RegisterServer(fkeyide::g_module);
-    if (SUCCEEDED(hr)) hr = fkeyide::RegisterProfiles(fkeyide::g_module);
-    if (SUCCEEDED(hr)) hr = fkeyide::RegisterCategories();
+    HRESULT hr = fkeyime::RegisterServer(fkeyime::g_module);
+    if (SUCCEEDED(hr)) hr = fkeyime::RegisterProfiles(fkeyime::g_module);
+    if (SUCCEEDED(hr)) hr = fkeyime::RegisterCategories();
     if (FAILED(hr)) DllUnregisterServer();
     return hr;
 }
 
 STDAPI DllUnregisterServer() {
-    fkeyide::UnregisterCategories();
-    fkeyide::UnregisterProfiles();
-    return fkeyide::UnregisterServer();
+    fkeyime::UnregisterCategories();
+    fkeyime::UnregisterProfiles();
+    return fkeyime::UnregisterServer();
 }

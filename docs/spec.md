@@ -1,12 +1,14 @@
-# FKeyIDE: behavior spec and architecture
+# FKeyIME: behavior spec and architecture
 
-FKeyIDE is one Windows IME (a TSF text input processor) that **replaces** US English, the
+FKeyIME is one Windows IME (a TSF text input processor) that **replaces** US English, the
 Microsoft Korean IME and the Microsoft Japanese IME. It is driven by the HHKB Studio's F17–F20
 keys (the name comes from this: switching languages with the **F keys**) and keeps the **JIS
 hardware layout and symbols** in every mode.
 
-Naming: **FKeyIDE** in prose and UI, `fkeyide` for identifiers, files and the repo, `f_key_ide`
+Naming: **FKeyIME** in prose and UI, `fkeyime` for identifiers, files and the repo, `f_key_ime`
 only where snake case is required.
+Renamed from FKeyIDE (`fkeyide`) on 2026-10-17, before any release. The old GitHub URL
+redirects. The CLSID and profile GUIDs didn't change.
 
 Items marked **[verify]** are assumptions not checked yet. Facts are marked *(documented)*,
 *(measured)* or *(inferred)*. The M0 spike measurements are in section 6.
@@ -24,7 +26,7 @@ Fn1 | F18 | Alt | Win | F19 | Space | F20 | F17 | RAlt | Fn1 | ← | ↓ | →
 | Key | Action (from any mode) |
 | --- | --- |
 | **F18** | → **Korean 2-Set** (Hangul composition always on; there is no 영 sub-mode, F19 is English) |
-| **F19** | → **English QWERTY**, **JIS symbols** (`Shift+2` = `"`, ろ = `\` / `_`, ¥ = `¥`), typed by FKeyIDE from its own key table |
+| **F19** | → **English QWERTY**, **JIS symbols** (`Shift+2` = `"`, ろ = `\` / `_`, ¥ = `¥`), typed by FKeyIME from its own key table |
 | **F20** | → **Japanese, kana input** (JIS kana layout), kana-kanji conversion |
 | **F17** | Depends on the mode, below |
 
@@ -44,7 +46,7 @@ Rules carried over from the macOS and AutoHotkey setups:
 
 Implemented and unit-tested in `src/core/mode_machine.*` (`tests/mode_machine_test.cpp`).
 
-**Scope: language input only.** FKeyIDE handles F17–F20 and the text typed in each mode. Other
+**Scope: language input only.** FKeyIME handles F17–F20 and the text typed in each mode. Other
 custom key bindings that don't handle language input, such as v1.5.2's Fn1+P → Play/Pause, are
 out of scope (owner, 2026-10-17). A Korean keyboard's 한/영 key isn't handled either (an optional
 toggle was tried and removed; only F17–F20 switch modes).
@@ -56,23 +58,23 @@ One TSF TIP (in-proc COM DLL, C++20) with **three language profiles** under one 
 
 | Profile | LANGID | Registered substitute HKL | Layout the thread actually gets *(measured)* |
 | --- | --- | --- | --- |
-| FKeyIDE EN | en-US 0x0409 | 0x04110411 (kbd106) | 0x04090409, **US symbols** |
-| FKeyIDE KO | ko-KR 0x0412 | 0x04110411 | 0x04120412, **US symbols** (`kbd101a`) |
-| FKeyIDE JA | ja-JP 0x0411 | 0x04110411 | 0x04110411, JIS symbols |
+| FKeyIME EN | en-US 0x0409 | 0x04110411 (kbd106) | 0x04090409, **US symbols** |
+| FKeyIME KO | ko-KR 0x0412 | 0x04110411 | 0x04120412, **US symbols** (`kbd101a`) |
+| FKeyIME JA | ja-JP 0x0411 | 0x04110411 | 0x04110411, JIS symbols |
 
-- F18/F19/F20 switch between FKeyIDE's own profiles (`ITfInputProcessorProfileMgr::ActivateProfile`
+- F18/F19/F20 switch between FKeyIME's own profiles (`ITfInputProcessorProfileMgr::ActivateProfile`
   with `TF_IPPMF_FORSESSION`). The switch takes about 5 ms, every other app follows within about
   25 ms, and the owner saw no overlay or flash *(measured, section 6)*.
 - **`hklSubstitute` does not give en-US/ko-KR the JIS layout** *(measured, section 6)*. The value
   is stored in the registry, but Windows keeps each language's own layout.
-- **FKeyIDE is its own IME and doesn't rely on Microsoft code for text** (owner, 2026-10-17;
+- **FKeyIME is its own IME and doesn't rely on Microsoft code for text** (owner, 2026-10-17;
   decides open question 8 as option (b)). In **every** mode it maps scan codes to characters
   with its own JIS table (letters, digits, symbols, ろ, ¥, and the kana table in Japanese) and
   inserts the text itself. It doesn't depend on which Windows keyboard layout the thread has, and
   it doesn't use the Microsoft IMEs. Cost: apps that read raw keys instead of text (games,
-  terminals in win32-input mode) still see the Windows layout's keys, not FKeyIDE's.
+  terminals in win32-input mode) still see the Windows layout's keys, not FKeyIME's.
 - OS: the Japanese hardware keyboard (106/109) is still recommended so raw-key apps and the
-  F-key scan codes behave as in v1.5.2. FKeyIDE's own output doesn't need it **[verify]** in M1.
+  F-key scan codes behave as in v1.5.2. FKeyIME's own output doesn't need it **[verify]** in M1.
   Removing the stock Microsoft IMEs from the language list is **optional**, offered by the
   installer wizard (section 7). They always stay installed.
 - F-keys: `ITfKeystrokeMgr::PreserveKey` for bare VK_F17–VK_F20 (they arrive in `OnPreservedKey`),
@@ -81,12 +83,12 @@ One TSF TIP (in-proc COM DLL, C++20) with **three language profiles** under one 
 - UI: own candidate window (per-monitor DPI v2) and UI-less mode (`ITfCandidateListUIElement`).
   Mode indicator: EN / 한 / あ / A (romaji) / ⇪ (Caps).
 - **Japanese engine: Mozc** (BSD-3-Clause), pinned in `third_party/mozc.commit`, **Option B**
-  (owner, 2026-10-17): FKeyIDE owns the TIP, the UI and the kana table, and only asks
+  (owner, 2026-10-17): FKeyIME owns the TIP, the UI and the kana table, and only asks
   `mozc_server` for kana-kanji conversion over Mozc's named pipe (section 6.4). No fork of Mozc's TIP.
 - **Korean engine:** own 2-Set automaton, fed by scan code, so it doesn't depend on the layout.
   **Hanja: single syllable only** (owner, 2026-10-17), from Unicode Unihan (`kHangul`). No word
   dictionary in v1. Don't link LGPL libhangul.
-- **English:** FKeyIDE's own JIS table, like the other modes. Caps Lock = the real system Caps
+- **English:** FKeyIME's own JIS table, like the other modes. Caps Lock = the real system Caps
   Lock (`SendInput(VK_CAPITAL)`), so the LED matches.
 - **Global mode** (owner, 2026-10-17): one mode for all windows. `ActivateProfile` with
   `TF_IPPMF_FORSESSION` already switches every TSF thread *(measured, section 6.3)*. A small named
@@ -136,7 +138,7 @@ Decided by the owner (2026-10-17):
 | 4 | ARM64 | **Not built or shipped, but not blocked** (section 2, "Builds") |
 | 6 | Remove the stock Microsoft IMEs from the language list | **Optional**, through the installer wizard; keeping them is the default (section 7) |
 | 7 | Fn1+P → Play/Pause and other non-language key bindings | **Out of scope** (section 1, "Scope") |
-| 8 | JIS symbols in English and Korean | **(b): FKeyIDE's own key table in every mode**, no Microsoft layout or IME code for text |
+| 8 | JIS symbols in English and Korean | **(b): FKeyIME's own key table in every mode**, no Microsoft layout or IME code for text |
 | A/B | Japanese engine | **Option B**: own TIP, `mozc_server` for conversion only |
 | 9 | 한/영 key toggle | **Removed** for now (reverted in 876010c) |
 
@@ -152,8 +154,8 @@ Still open (the implemented default stands until the owner says otherwise):
 
 Setup: Windows 11 Pro 25H2 build 26200, i7-1165G7, HHKB Studio JIS on USB, Profile 4, Japanese
 106/109 hardware layout. Spike TIP from this repo's `src/tip` (Release, unsigned), installed with
-`tools/spike.ps1` (x64 + x86, in `C:\Program Files\FKeyIDE-spike`), stock Microsoft IMEs still
-in the list. Raw log: `%ProgramData%\fkeyide\fkeyide.log`. Probe: `tools/spike/probe.cpp`.
+`tools/spike.ps1` (x64 + x86, in `C:\Program Files\FKeyIME-spike`), stock Microsoft IMEs still
+in the list. Raw log: `%ProgramData%\fkeyime\fkeyime.log`. Probe: `tools/spike/probe.cpp`.
 
 ### 6.1 F-key delivery per app
 
@@ -182,13 +184,13 @@ code into the probe's Edit control. Keys: Shift+2, ろ, Shift+ろ, ¥, `@` key, 
 
 | Profile | Thread HKL | Result | Expected (JIS keycaps) |
 | --- | --- | --- | --- |
-| FKeyIDE EN | 04090409 | `@`, –, –, –, `[`, `]`, `'` (US) | `"` `\` `_` `¥` `@` `[` `:` |
-| FKeyIDE KO | 04120412 | `@`, –, –, –, `[`, `]`, `'` (US) | same |
-| FKeyIDE JA | 04110411 | `"` `\` `_` `\` `@` `[` `:` (JIS) | same |
+| FKeyIME EN | 04090409 | `@`, –, –, –, `[`, `]`, `'` (US) | `"` `\` `_` `¥` `@` `[` `:` |
+| FKeyIME KO | 04120412 | `@`, –, –, –, `[`, `]`, `'` (US) | same |
+| FKeyIME JA | 04110411 | `"` `\` `_` `\` `@` `[` `:` (JIS) | same |
 
 – = no character. The ¥ key gives U+005C under `kbd106`, which Japanese fonts draw as ¥; that's
 the same as v1.5.2's English. The registry has `SubstituteLayout = 0x04110411` for all three
-profiles, and it has no effect. Resolved by decision 8 (b) in section 5: FKeyIDE types every character from its own table.
+profiles, and it has no effect. Resolved by decision 8 (b) in section 5: FKeyIME types every character from its own table.
 
 ### 6.3 Switch latency and global mode
 
@@ -216,7 +218,7 @@ From reading Mozc at the pinned commit:
 
 - Mozc's TIP (`src/win32/tip`, 79 files, about 14k lines) is **ja-JP only**: one profile, LANGID
   0x0411 hardcoded in several places. Its kana input calls the real `ToUnicode` with VK_KANA set,
-  so it needs the thread's layout to be Japanese (FKeyIDE JA gets 04110411, so that part works).
+  so it needs the thread's layout to be Japanese (FKeyIME JA gets 04110411, so that part works).
 - The TIP ↔ server protocol is simple: a message-mode named pipe `\\.\pipe\mozc.<key>.session`
   (key from `LocalLow\Mozc\session.ipc`) carrying `commands::Input`/`Output` protobufs. The
   server doesn't authenticate clients. The pipe's DACL already admits AppContainer apps at Low
@@ -227,7 +229,7 @@ From reading Mozc at the pinned commit:
 - Mozc builds with Bazel and clang-cl and produces no static `.lib` for its client. Linking it
   into a CMake/MSVC DLL means matching absl/protobuf/CRT by hand.
 
-**Recommendation: Option B.** FKeyIDE's TIP stays the one place for the three modes, F-keys,
+**Recommendation: Option B.** FKeyIME's TIP stays the one place for the three modes, F-keys,
 UI and Korean. It speaks the pipe protocol with its own small client: `commands.proto` compiled
 with protobuf in CMake, an estimated few hundred lines *(inferred)* instead of Mozc's 5.6k-line
 client closure. Ship a `mozc_server` built by Bazel from the pinned commit with a small patch to
@@ -251,7 +253,7 @@ Requirements from the owner (2026-10-17):
 4. **Keeping the Microsoft IMEs is always the default.** Clicking Next through the whole wizard
    never removes them.
 
-Removal only takes them out of the language list. They stay installed, and uninstalling FKeyIDE
+Removal only takes them out of the language list. They stay installed, and uninstalling FKeyIME
 puts them back.
 
 Detection *(inferred, to check in M5)*: laptop = `Win32_SystemEnclosure.ChassisTypes` in

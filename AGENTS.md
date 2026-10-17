@@ -1,13 +1,13 @@
-# AGENTS.md — FKeyIDE
+# AGENTS.md — FKeyIME
 
-FKeyIDE (`fkeyide`; `f_key_ide` only where snake case is required) is a Windows TSF IME for
+FKeyIME (`fkeyime`; `f_key_ime` only where snake case is required) is a Windows TSF IME for
 English / Korean / Japanese on a JIS HHKB Studio, switched with F17–F20. Read `docs/spec.md`
 (behavior, architecture, milestones, open questions) and `docs/toolchain.md` (build) first.
 
 | Path | What |
 | --- | --- |
 | `src/core/` | Mode logic (F-key rules), pure C++, no Windows headers. Unit-tested |
-| `src/tip/` | The TSF text input processor DLL (`fkeyide.dll`). `guids.h` is permanent |
+| `src/tip/` | The TSF text input processor DLL (`fkeyime.dll`). `guids.h` is permanent |
 | `tests/` | Unit tests (`tools/build.ps1` runs them) |
 | `tools/` | `bootstrap.ps1`, `build.ps1`, `dev.ps1`, `fetch-mozc.ps1` |
 | `third_party/` | Pinned Mozc commit |

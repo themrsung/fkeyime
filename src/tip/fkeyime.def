@@ -1,4 +1,4 @@
-LIBRARY fkeyide
+LIBRARY fkeyime
 EXPORTS
     DllCanUnloadNow PRIVATE
     DllGetClassObject PRIVATE

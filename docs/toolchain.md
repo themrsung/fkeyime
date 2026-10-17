@@ -1,13 +1,13 @@
 # Toolchain
 
-Everything needed to build FKeyIDE on Windows 11 x64. `tools/bootstrap.ps1` checks all of it
+Everything needed to build FKeyIME on Windows 11 x64. `tools/bootstrap.ps1` checks all of it
 (`-Install` installs what's missing with winget) and wires up the repo (commit hook, WiX).
 
 | Tool | Version (this PC, 2026-10-17) | Used for |
 | --- | --- | --- |
 | Visual Studio 2022 Build Tools: MSVC v143 x64/x86, ATL x64/x86 | 17.14.41, MSVC 14.44 | the TIP DLL; Mozc |
 | Windows SDK | 10.0.26100 | TSF / Win32 headers |
-| CMake | 4.4.3 (needs ≥ 3.28) | FKeyIDE build (`CMakePresets.json`) |
+| CMake | 4.4.3 (needs ≥ 3.28) | FKeyIME build (`CMakePresets.json`) |
 | Ninja | 1.13.2 | CMake generator |
 | Git | Git for Windows | repo, Mozc checkout |
 | Python | 3.12.10 (Mozc needs ≥ 3.12) | Mozc's `update_deps.py` and build scripts |
@@ -25,7 +25,7 @@ build tools" and "C++ ATL … (ARM64/ARM64EC)" in the Visual Studio Installer, t
 Mozc downloads its own LLVM, MSYS2, Ninja and Qt with `update_deps.py`. They stay inside
 `third_party/mozc` and aren't installed system-wide.
 
-## Build FKeyIDE
+## Build FKeyIME
 
 ```powershell
 tools/bootstrap.ps1                   # once: check tools, set core.hooksPath, restore WiX
@@ -34,8 +34,8 @@ tools/build.ps1 -Config Release
 tools/dev.ps1 -Arch x64 -Command 'cmake --build --preset x64-debug'   # anything in a VS dev env
 ```
 
-Outputs: `build/<arch>/src/tip/<Config>/fkeyide.dll` and
-`build/<arch>/tests/<Config>/fkeyide_tests.exe`.
+Outputs: `build/<arch>/src/tip/<Config>/fkeyime.dll` and
+`build/<arch>/tests/<Config>/fkeyime_tests.exe`.
 
 ## Mozc (milestone M0)
 
@@ -48,7 +48,7 @@ bazelisk --nowindows_enable_symlinks build package --config release_build
 ```
 
 Output: `third_party/mozc/src/bazel-bin/win32/installer/Mozc64.msi` (26.4 MB). It's built for
-testing only. Don't install it next to FKeyIDE: it registers its own ja-JP TIP.
+testing only. Don't install it next to FKeyIME: it registers its own ja-JP TIP.
 
 **Measured 2026-10-17** on this PC (i7-1165G7, 4 cores / 8 threads, 16 GB RAM), Mozc 0136c357
 ("3.35.6354"):
