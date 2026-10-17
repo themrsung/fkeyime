@@ -137,6 +137,10 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Remote desktop (Parsec) from a Mac.** Measured: typing works with JIS symbols, but Parsec
+  doesn't pass F18–F20, 英数, かな or Ctrl from the Mac, so only English is reachable that way
+  (`docs/issues/parsec-from-mac.md`). No change to FKeyIME yet.
+
 - **Settings shows FKeyIME, without options.** After an MSI install (Windows Sandbox), FKeyIME
   appears under all three languages in Windows Settings, with Remove only. Its settings window
   is in the Start menu. No user-visible change in this commit.

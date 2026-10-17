@@ -22,6 +22,7 @@ JIS, keymap Profile 4), with the cause and the fix for each. Read the matching f
 | [USB mouse dead after a reboot](usb-mouse-after-reboot.md) | Not FKeyIME: the USB-C dock's hub port |
 | [A changed setting doesn't reach running apps](settings-need-app-restart.md) | Solved: settings apply at the next key. Apps on an older build need one restart |
 | [Mouse, trackpad and Tab dead after a test](start-menu-holds-input.md) | Solved: restart the Start menu process. Caused by a test injecting Right Win |
+| [Over Parsec from a Mac, only English works](parsec-from-mac.md) | Open: Parsec doesn't forward F18–F20; typing (JIS symbols) works |
 | [Windows Settings doesn't list FKeyIME under the keyboards](settings-doesnt-list-fkeyime.md) | Open. Workaround: Start menu → FKeyIME settings |
 | [Right Win / Right Ctrl / Right Alt taps never reach FKeyIME](modifier-taps-unreachable.md) | Not fixable in a TIP: the escape hatch uses ``Alt+` `` instead |
 

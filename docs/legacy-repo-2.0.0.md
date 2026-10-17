@@ -149,6 +149,10 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Parsec from a Mac.** Measured limit: Parsec doesn't forward F18–F20 from macOS, so Path B
+  can't switch modes over Parsec yet (typing works). Mention it as a known limit in
+  `04-fkeyime.md` if the release still has it. Still not ready.
+
 - **Settings listing narrowed.** After an MSI install, Windows Settings lists FKeyIME under all three
   languages but offers no keyboard options; tell users to use Start menu → FKeyIME settings.
   Still not ready.
