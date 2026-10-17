@@ -29,7 +29,7 @@ menu, where the owner picks it.)*
 
 | Change | Registry after | Settings lists FKeyIME KO? |
 | --- | --- | --- |
-| Display name: `SetLanguageProfileDisplayName` with a string resource, and an icon in the DLL (`fkeyime.rc`) | `Display Description = @…keyime.dll,-202`, `IconFile` with a real icon | No |
+| Display name: `SetLanguageProfileDisplayName` with a string resource, and an icon in the DLL (`fkeyime.rc`) | `Display Description = @…\fkeyime.dll,-202`, `IconFile` with a real icon | No |
 | No substitute layout (every profile used to name the Japanese 0x04110411) | `SubstituteLayout` gone | No |
 | Per-user registration with Windows' `InstallLayoutOrTip` (the MSI's `--user-install` step) for the three profiles | returns success; no per-user `HKCU\Software\Microsoft\CTF\TIP` entry appears for FKeyIME (the Microsoft IMEs have one with `Enable = 1`, being disabled machine-wide) | No |
 

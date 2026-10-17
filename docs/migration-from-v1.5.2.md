@@ -137,6 +137,8 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Typo fix in docs/issues.** No user-visible change.
+
 - **Registration cleanup.** FKeyIME's keyboards now have a display name and an icon, and no
   longer name a substitute layout. Windows Settings still doesn't list them under the
   languages (`docs/issues/settings-doesnt-list-fkeyime.md`); the Start-menu shortcut opens the
