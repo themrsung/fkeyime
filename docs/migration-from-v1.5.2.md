@@ -28,7 +28,6 @@ Korean and Japanese IMEs, started by the `hhkb-ekj-trilingual` logon task.
 | F19 → English | Japanese language with the IME off (taskbar shows JA / A) | FKeyIDE EN (en-US, taskbar shows EN) |
 | F20 → Japanese | Microsoft Japanese IME, kana typing | FKeyIDE JA (Mozc conversion), kana typing |
 | F17 | Korean: 한자. Elsewhere: nothing | Korean: Hanja. Japanese: transient romaji. English: transient Caps Lock |
-| 한/영 key of a Korean keyboard (e.g. a laptop's) | Microsoft Korean IME's own 한/영 toggle, while Korean is active | Optional, off by default: Korean → English, any other mode → Korean (`spec.md`, open question 9). Not tested on a real Korean keyboard yet ⏳ |
 | Symbols in Korean | **US ANSI** (the compromise) | Goal: **JIS**. Measured in M0: the planned layout substitution doesn't work, so FKeyIDE KO (and EN) type **US symbols** for now. A fix is being chosen (spec open question 8) ⏳ |
 | Mode across windows | Per window, so a window can drift back to Korean (`issues/windows-inconsistent-symbols.md`) | One global mode. Measured in M0: a switch takes about 5 ms, and every open app follows within about 25 ms (median), with no on-screen popup |
 | Elevated (admin) windows | Keys don't switch (UIPI) | Switch works, the TIP loads in-process ⏳ |
@@ -105,6 +104,8 @@ v1.5.2 turned Fn1+P (`Pause`) into Play/Pause with AutoHotkey. FKeyIDE doesn't d
 
 One entry per FKeyIDE commit (newest first).
 
+- **한/영 key removed.** The optional Korean ↔ English toggle for a Korean keyboard's 한/영 key is
+  gone again (owner's decision): only F17–F20 switch modes. Still nothing to install.
 - **M0 done.** Status banner updated: M0 finished, still nothing to install. "Mode across
   windows" now gives the measured switch time (about 5 ms, other apps within about 25 ms, no
   popup). The fix for the US symbols in Korean and English is still the owner's choice

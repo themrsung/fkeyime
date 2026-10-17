@@ -51,9 +51,8 @@ public:
 private:
     ~TextService();
 
-    // True for the keys FKeyIDE acts on: bare F17-F20, and 한/영 when the policy enables it.
-    bool IsOurKey(WPARAM vk, LPARAM lparam, FKey* key) const;
-    void HandleKey(FKey key, const wchar_t* path);
+    bool IsOurFKey(WPARAM vk) const;
+    void HandleFKey(WPARAM vk, const wchar_t* path);
     void ActivateMode(Mode mode);
 
     LONG refs_ = 1;

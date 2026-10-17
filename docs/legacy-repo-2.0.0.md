@@ -59,7 +59,6 @@ Tell the user plainly: **choosing FKeyIDE installs dependencies.** Path A has on
 | English | Japanese with the IME off: JIS symbols, taskbar shows JA | Real en-US profile, taskbar shows EN. Goal JIS symbols; **US symbols as measured in M0** until open question 8 is fixed |
 | Japanese | Microsoft Japanese IME (cloud suggestions, MS user dictionary) | Mozc (offline, different conversion, no MS dictionary). Proposed: FKeyIDE's own TIP plus a bundled, renamed `mozc_server` (Option B, owner to confirm) |
 | F17 | 한자 in Korean only | Hanja / transient romaji / transient Caps Lock |
-| 한/영 key (Korean keyboards) | Microsoft Korean IME toggle, while Korean is active | Optional, off by default: Korean → English, otherwise → Korean. Take the default from the release (open question 9) |
 | Consistency | Per-window language, can drift (`issues/windows-inconsistent-symbols.md`); 150 ms wait-and-retry | One global mode, no message posting or retries. M0 measured about 5 ms per switch, with every app following within about 25 ms (median) |
 | Elevated (admin) windows | Doesn't switch (UIPI) | Works |
 | Password fields, UAC, sign-in | Switches the language | F17–F20 do nothing |
@@ -130,6 +129,8 @@ section 5).
 
 One entry per FKeyIDE commit (newest first).
 
+- **한/영 key removed.** The optional 한/영 toggle and its tradeoff-table row are gone (owner's
+  decision). Don't mention a 한/영 key in 04-fkeyide.md. Readiness gate unchanged: not ready.
 - **M0 done.** Readiness gate: still not ready. The status banner says M0 is finished. The
   Consistency row gives the measured switch time. The Japanese row names the proposed Mozc
   setup (Option B: a bundled, renamed `mozc_server`, so the dependency list in Path B will name

@@ -56,18 +56,11 @@ Result ContextKey(const State& current) {
 
 Result OnFKey(const State& current, FKey key, bool has_modifiers, const Policy& policy) {
     if (has_modifiers) return {.eaten = false, .next = current};
-    if (key == FKey::kHanYeong && !policy.han_yeong_toggles) {
-        return {.eaten = false, .next = current};
-    }
     switch (key) {
         case FKey::kF18: return SwitchTo(current, Mode::kKorean, policy);
         case FKey::kF19: return SwitchTo(current, Mode::kEnglish, policy);
         case FKey::kF20: return SwitchTo(current, Mode::kJapanese, policy);
         case FKey::kF17: return ContextKey(current);
-        case FKey::kHanYeong:
-            // Same reset rules as the mode keys; only the target depends on the current mode.
-            return SwitchTo(current, current.mode == Mode::kKorean ? Mode::kEnglish : Mode::kKorean,
-                            policy);
     }
     return {.eaten = false, .next = current};
 }

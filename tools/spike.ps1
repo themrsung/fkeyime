@@ -3,8 +3,7 @@
 #   tools/spike.ps1 -Install [-Config Release]   copy, regsvr32 (x64 + x86), add the 3 profiles
 #                                                to the language list (stock IMEs stay)
 #   tools/spike.ps1 -Uninstall                   undo all of it, restore the language list
-#   tools/spike.ps1 -Option Defer=1              set a TIP option (HKLM\Software\fkeyide):
-#                                                ActivateFlags, Defer, PreserveKeys, HanYeongToggles
+#   tools/spike.ps1 -Option Defer=1              set a TIP option (HKLM\Software\fkeyide)
 #   tools/spike.ps1 -Log                         tail the TIP log
 param(
     [switch] $Install,

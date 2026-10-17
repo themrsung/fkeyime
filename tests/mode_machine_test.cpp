@@ -93,38 +93,3 @@ TEST_CASE("modified F-keys are not eaten and change nothing") {
         CHECK(r.next.mode == Mode::kKorean);
     }
 }
-
-TEST_CASE("han/yeong key is passed through unless the policy turns it on") {
-    for (Mode from : {Mode::kEnglish, Mode::kKorean, Mode::kJapanese}) {
-        auto r = OnFKey(State{.mode = from}, FKey::kHanYeong, false);
-        CHECK(!r.eaten);
-        CHECK(r.next.mode == from);
-        CHECK(r.effects.empty());
-    }
-}
-
-TEST_CASE("han/yeong key toggles Korean <-> English, and goes to Korean from Japanese") {
-    const Policy on{.han_yeong_toggles = true};
-    auto from_ko = OnFKey(State{.mode = Mode::kKorean}, FKey::kHanYeong, false, on);
-    CHECK(from_ko.eaten);
-    CHECK(from_ko.next.mode == Mode::kEnglish);
-    CHECK(Has(from_ko, ActivateEffect(Mode::kEnglish)));
-
-    auto from_en = OnFKey(State{.mode = Mode::kEnglish, .caps_lock = true}, FKey::kHanYeong,
-                          false, on);
-    CHECK(from_en.next.mode == Mode::kKorean);
-    CHECK(!from_en.next.caps_lock);
-    CHECK(Has(from_en, kCapsOff));
-
-    auto from_ja = OnFKey(State{.mode = Mode::kJapanese, .japanese_input = JapaneseInput::kRomaji},
-                          FKey::kHanYeong, false, on);
-    CHECK(from_ja.next.mode == Mode::kKorean);
-    CHECK(from_ja.next.japanese_input == JapaneseInput::kKana);  // romaji forgotten
-}
-
-TEST_CASE("modified han/yeong key is not eaten even when the policy is on") {
-    const Policy on{.han_yeong_toggles = true};
-    auto r = OnFKey(State{.mode = Mode::kKorean}, FKey::kHanYeong, true, on);
-    CHECK(!r.eaten);
-    CHECK(r.next.mode == Mode::kKorean);
-}
