@@ -338,9 +338,13 @@ Options are DWORDs in `HKCU\Software\fkeyime`, else `HKLM\Software\fkeyime`. **S
 HKLM** (`tools/spike.ps1 -Option`, later the installer): packaged (Store) apps don't see the
 user's `HKCU\Software\fkeyime` and fall back to HKLM *(measured: Notepad read `KeyboardLayout=0`
 with only HKCU set, conhost read 1)*. HKLM is readable by all app packages (its ACL grants ALL
-APPLICATION PACKAGES read). The keyboard options (this section) are read again whenever an app's
-window gets focus, so a change applies without restarting apps *(measured: a running Notepad
-picked up HKLM values on focus)*.
+APPLICATION PACKAGES read). A change to the keyboard options (this section) applies to running apps
+at the next key: FKeyIME asks Windows to signal it when either options key changes
+(`RegNotifyChangeKeyValue`) and checks that signal on every key *(measured: `fkeyime_probe
+--typing OPTION` switches JIS → US → JIS inside one running window, Win32 Edit and RichEdit)*.
+Re-reading on focus alone wasn't enough: TSF rarely calls `OnSetFocus` when you switch windows
+(`docs/issues/settings-need-app-restart.md`). Apps that loaded an older FKeyIME build keep it
+until they restart.
 
 | Option | Values |
 | --- | --- |

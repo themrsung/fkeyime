@@ -134,6 +134,10 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Settings apply without restarting apps.** A changed FKeyIME setting (such as
+  `KeyboardLayout`) now takes effect at the next key in apps that are already open. Before, it
+  only reached newly opened windows. Apps that loaded an older FKeyIME build still need one
+  restart (or a sign-out) after an update. Measured with FKeyIME's test program.
 - **US ANSI keyboards, and an escape hatch without F16-F20.** Two groups of settings in
   `HKLM\Software\fkeyime`, all off by default, for US ANSI boards (FKeyIME spec, section 8).
   JIS users: no change.

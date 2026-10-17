@@ -331,6 +331,7 @@ STDMETHODIMP TextService::ActivateEx(ITfThreadMgr* thread_mgr, TfClientId client
     if (message_window_) {
         SetWindowLongPtrW(message_window_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
     }
+    WatchOptions(true);
     LogLayoutProbe(L"ActivateEx");
     return S_OK;
 }
@@ -364,13 +365,51 @@ STDMETHODIMP TextService::Deactivate() {
     profile_sink_cookie_ = TF_INVALID_COOKIE;
     thread_mgr_.Reset();
     client_id_ = TF_CLIENTID_NULL;
+    WatchOptions(false);
     return S_OK;
 }
 
 STDMETHODIMP TextService::OnSetFocus(BOOL foreground) {
     log::Write(L"OnSetFocus %d", foreground);
-    if (foreground) LoadKeyboardOptions();  // a changed option applies without restarting apps
+    if (foreground) ReloadOptionsIfChanged();
     return S_OK;
+}
+
+void TextService::WatchOptions(bool on) {
+    for (HKEY& key : options_keys_) {
+        if (key) RegCloseKey(key);
+        key = nullptr;
+    }
+    if (options_changed_) {
+        CloseHandle(options_changed_);
+        options_changed_ = nullptr;
+    }
+    if (!on) return;
+    options_changed_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    if (!options_changed_) return;
+    const HKEY roots[] = {HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
+    for (int i = 0; i < 2; ++i) {
+        // Packaged apps can't open the HKCU key; HKLM is enough there (see ReadOption).
+        if (RegOpenKeyExW(roots[i], L"Software\\fkeyime", 0, KEY_NOTIFY, &options_keys_[i]) !=
+            ERROR_SUCCESS) {
+            options_keys_[i] = nullptr;
+            continue;
+        }
+        // One-shot: re-armed after each change, in ReloadOptionsIfChanged.
+        RegNotifyChangeKeyValue(options_keys_[i], FALSE, REG_NOTIFY_CHANGE_LAST_SET,
+                                options_changed_, TRUE);
+    }
+}
+
+void TextService::ReloadOptionsIfChanged() {
+    if (!options_changed_ || WaitForSingleObject(options_changed_, 0) != WAIT_OBJECT_0) return;
+    for (HKEY key : options_keys_) {
+        if (key) {
+            RegNotifyChangeKeyValue(key, FALSE, REG_NOTIFY_CHANGE_LAST_SET, options_changed_,
+                                    TRUE);
+        }
+    }
+    LoadKeyboardOptions();
 }
 
 void TextService::LoadKeyboardOptions() {
@@ -474,6 +513,7 @@ TextService::Plan TextService::PlanKey(WPARAM vk, LPARAM lparam) const {
 }
 
 STDMETHODIMP TextService::OnTestKeyDown(ITfContext*, WPARAM wparam, LPARAM lparam, BOOL* eaten) {
+    ReloadOptionsIfChanged();
     // "Commit then pass" keys are reported as ours so OnKeyDown runs and can end the
     // composition; OnKeyDown then hands them on.
     *eaten = PlanKey(wparam, lparam).action != Action::kPass;
@@ -482,6 +522,7 @@ STDMETHODIMP TextService::OnTestKeyDown(ITfContext*, WPARAM wparam, LPARAM lpara
 
 STDMETHODIMP TextService::OnKeyDown(ITfContext* context, WPARAM wparam, LPARAM lparam,
                                     BOOL* eaten) {
+    ReloadOptionsIfChanged();  // TSF-aware apps call OnKeyDown without OnTestKeyDown
     // A key typed before the timer of a delayed switch fires: switch now, before composing in
     // the new mode (WM_TIMER waits while keys are queued).
     ApplyPendingSwitch();
@@ -547,6 +588,7 @@ STDMETHODIMP TextService::OnKeyUp(ITfContext*, WPARAM wparam, LPARAM, BOOL* eate
 }
 
 STDMETHODIMP TextService::OnPreservedKey(ITfContext* context, REFGUID guid, BOOL* eaten) {
+    ReloadOptionsIfChanged();
     *eaten = FALSE;
     for (const OurKey& k : kOurKeys) {
         if (IsEqualGUID(guid, k.preserved)) {

@@ -97,6 +97,10 @@ private:
     char16_t KanaFor(WPARAM vk, std::uint8_t scan, bool shift, bool extended) const;
     // KeyboardLayout, AnsiExtraKeys, CycleKeys, CycleJapanese, F17Keys.
     void LoadKeyboardOptions();
+    // Reload them when HKCU or HKLM\Software\fkeyime changes: a registry change notification,
+    // checked on every key (one non-blocking wait).
+    void WatchOptions(bool on);
+    void ReloadOptionsIfChanged();
     bool Composing() const { return !hangul_.Empty() || !kana_.Empty() || converting_; }
 
     void HandleFKey(ITfContext* context, FKey key, const wchar_t* path);
@@ -163,6 +167,8 @@ private:
     JapaneseInput cycle_japanese_ = JapaneseInput::kKana;  // option CycleJapanese: 1 romaji
     DWORD f17_keys_ = 0;                      // option F17Keys: 1 Alt+Shift+` acts as F17
     unsigned combos_preserved_ = 0;           // bit i: kComboKeys[i] is preserved
+    HANDLE options_changed_ = nullptr;        // signaled when an options key changes
+    HKEY options_keys_[2] = {};               // HKCU, HKLM \Software\fkeyime (null if absent)
     bool keys_preserved_ = false;
 };
 

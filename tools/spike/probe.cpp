@@ -426,6 +426,12 @@ int Handoff(int rounds) {
 // A sequence is a list of tokens: a letter/digit/symbol is that JIS key by scan code ("S-" prefix
 // = with Shift), and names in braces are special keys.
 constexpr WORD kCheckWindow = 0xFFFF;
+// Setting changes in HKCU\Software\fkeyime while a case runs, then FKeyIME must follow at the
+// next key: {ANSI} sets KeyboardLayout=1; {HATCH} also turns the escape hatch on (CycleKeys=3,
+// F17Keys=1); {JIS} removes all three again.
+constexpr WORD kSetAnsi = 0xFFFE;
+constexpr WORD kSetJis = 0xFFFD;
+constexpr WORD kSetHatch = 0xFFFC;
 
 struct Tok {
     WORD vk;      // for special keys; 0 for scan-code keys; kCheckWindow for {WIN}
@@ -446,7 +452,8 @@ std::vector<Tok> Keys(const wchar_t* seq) {
         {L"ESC", VK_ESCAPE, 0x01}, {L"ENTER", VK_RETURN, 0x1c}, {L"SP", VK_SPACE, 0x39},
         {L"RO", 0, 0x73},       {L"YEN", 0, 0x7d},
         {L"LEFT", VK_LEFT, 0x4b}, {L"RIGHT", VK_RIGHT, 0x4d}, {L"DOWN", VK_DOWN, 0x50},
-        {L"WIN", kCheckWindow, 0},
+        {L"WIN", kCheckWindow, 0},       {L"ANSI", kSetAnsi, 0},   {L"JIS", kSetJis, 0},
+        {L"HATCH", kSetHatch, 0},
         // Escape-hatch keys (options CycleKeys, F17Keys). GRAVE is the key left of 1.
         {L"APPS", VK_APPS, 0x5d}, {L"GRAVE", 0, 0x29},
     };
@@ -555,13 +562,15 @@ int Typing(const wchar_t* only) {  // only: run cases whose name starts with it
         {L"CONV typing on accepts", L"{F20}i-y{SP}3{ENTER}", L"\u65E5\u672C\u3042"},
         {L"CONV F-key accepts", L"{F20}i-y{SP}{F19}a", L"\u65E5\u672Ca"},
         {L"FAST CONV first candidate", L"{F20}i-y{SP}{ENTER}", L"\u65E5\u672C"},
-        // Escape hatch (spec section 8). Need CycleKeys=3 and F17Keys=1; run them with a name
-        // filter: --typing COMBO. Never inject Win keys here: they reach the shell.
-        {L"COMBO cycle with Alt+`", L"{F19}aA-{GRAVE}aA-{GRAVE}aA-{GRAVE}a", L"a\u3141\u3061a"},
-        {L"COMBO cycle with Menu", L"{F19}a{APPS}a{APPS}a{APPS}a", L"a\u3141\u3061a"},
-        {L"COMBO Alt+Shift+` is F17", L"{F19}A-S-{GRAVE}abA-S-{GRAVE}c", L"ABc"},
-        {L"COMBO ANSI ` is a long vowel in kana", L"{F20}{GRAVE}{ENTER}", L"ー"},
-        {L"COMBO cycle ends a composition", L"{F18}rkA-{GRAVE}3{ENTER}", L"\uAC00\u3042"},
+        // Escape hatch (spec section 8): each case turns it on and off itself. Never inject Win
+        // keys here: they reach the shell.
+        // A setting change applies to the running app at the next key (no restart).
+        {L"OPTION layout switch while running", L"{F19}S-2{ANSI}S-2{JIS}S-2", L"\"@\""},
+        {L"COMBO cycle with Alt+`", L"{HATCH}{F19}aA-{GRAVE}aA-{GRAVE}aA-{GRAVE}a{JIS}", L"a\u3141\u3061a"},
+        {L"COMBO cycle with Menu", L"{HATCH}{F19}a{APPS}a{APPS}a{APPS}a{JIS}", L"a\u3141\u3061a"},
+        {L"COMBO Alt+Shift+` is F17", L"{HATCH}{F19}A-S-{GRAVE}abA-S-{GRAVE}c{JIS}", L"ABc"},
+        {L"COMBO ANSI ` is a long vowel in kana", L"{HATCH}{F20}{GRAVE}{ENTER}{JIS}", L"ー"},
+        {L"COMBO cycle ends a composition", L"{HATCH}{F18}rkA-{GRAVE}3{ENTER}{JIS}", L"\uAC00\u3042"},
     };
     // A tap key that leaks to the app may open a menu, whose modal loop would stall this thread:
     // close any popup menu (class #32768) and report it.
@@ -589,6 +598,30 @@ int Typing(const wchar_t* only) {  // only: run cases whose name starts with it
                 if (!fast) Pump(150);
                 HWND w = FindWindowW(L"FKeyIMECandidateWindow", nullptr);
                 marks += w && IsWindowVisible(w) ? L"[W]" : L"[-]";
+                continue;
+            }
+            if (t.vk == kSetAnsi || t.vk == kSetJis || t.vk == kSetHatch) {  // no key
+                HKEY key = nullptr;
+                if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\fkeyime", 0, nullptr, 0,
+                                    KEY_SET_VALUE, nullptr, &key, nullptr) == ERROR_SUCCESS) {
+                    auto set = [key](const wchar_t* name, DWORD value) {
+                        RegSetValueExW(key, name, 0, REG_DWORD,
+                                       reinterpret_cast<const BYTE*>(&value), sizeof(value));
+                    };
+                    if (t.vk == kSetJis) {
+                        for (const wchar_t* name : {L"KeyboardLayout", L"CycleKeys", L"F17Keys"}) {
+                            RegDeleteValueW(key, name);
+                        }
+                    } else {
+                        set(L"KeyboardLayout", 1);
+                        if (t.vk == kSetHatch) {
+                            set(L"CycleKeys", 3);
+                            set(L"F17Keys", 1);
+                        }
+                    }
+                    RegCloseKey(key);
+                }
+                Pump(100);
                 continue;
             }
             const bool extended = t.vk == VK_LEFT || t.vk == VK_RIGHT || t.vk == VK_DOWN ||

@@ -148,6 +148,10 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Settings apply without restarting apps.** FKeyIME's options now take effect at the next key in
+  running apps (registry change notification; FKeyIME spec section 8). Path B docs can say that
+  changing `KeyboardLayout` or the escape-hatch settings needs no restart, but updating FKeyIME
+  itself still does (restart apps or sign out). Still not ready.
 - **US ANSI keyboards, and an escape hatch without F16-F20.** FKeyIME now has, off by default
   in `HKLM\Software\fkeyime` (FKeyIME spec, sections 7 and 8):
   - `KeyboardLayout=1` for US ANSI boards, with `AnsiExtraKeys` for ー and ろ (the `` ` `` key, or
