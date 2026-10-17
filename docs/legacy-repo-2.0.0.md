@@ -148,6 +148,11 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Default input method: not solved.** Measured after a reboot: the override alone didn't start
+  the session in FKeyIME (`docs/issues/sign-in-starts-on-microsoft-ime.md`, reopened). In
+  `04-fkeyime.md`, keep the override step but add "after signing in, pick FKeyIME once with
+  Win+Space" until a fix is measured. Still not ready.
+
 - **Settings apply without restarting apps.** FKeyIME's options now take effect at the next key in
   running apps (registry change notification; FKeyIME spec section 8). Path B docs can say that
   changing `KeyboardLayout` or the escape-hatch settings needs no restart, but updating FKeyIME

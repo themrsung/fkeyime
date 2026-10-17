@@ -125,8 +125,11 @@ One TSF TIP (in-proc COM DLL, C++20) with **three language profiles** under one 
   correctly handled the F-keys the Microsoft way, and FKeyIME only took over after the owner
   picked it with Win+Space. Fix: Windows' default input method override set to FKeyIME EN
   (`Set-WinDefaultInputMethodOverride -InputTip "0409:{66749D2A-1770-43D3-A269-A051B5BC1AAA}{8F61A2C0-75BC-4042-B739-CC7D63B542E5}"`,
-  or Settings → Time & language → Typing → Advanced keyboard settings). The installer (M5) must
-  offer it, and uninstalling must clear it.
+  or Settings → Time & language → Typing → Advanced keyboard settings). **Not enough on its own:**
+  with the override set, the reboot at 21:50 the same day still started on the Microsoft Korean
+  IME, and nothing loaded FKeyIME for 5 minutes *(measured; `issues/sign-in-starts-on-microsoft-ime.md`,
+  open)*. The installer (M5) sets it and clears it on uninstall, but a reliable start in FKeyIME
+  is still open.
 - **Apps already running when FKeyIME is installed, updated or reinstalled may not load it until
   they restart** *(measured 2026-10-17)*: Notepad, Claude, Opera, Edge and Windows Terminal,
   running since before the day's reinstalls (and the rename from FKeyIDE), switched to FKeyIME's

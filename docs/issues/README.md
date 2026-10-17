@@ -11,7 +11,7 @@ JIS, keymap Profile 4), with the cause and the fix for each. Read the matching f
 | --- | --- |
 | [Backspace sends the message (types Enter), stray `3`](backspace-sends-enter.md) | Open: hypothesis, the HHKB rests on the laptop's keys |
 | [A Hanja pick also types the candidate's number](hanja-pick-types-a-digit.md) | Gone; not reproducible. Probably the same as above |
-| [After a reboot, the F-keys go to the Microsoft IMEs](sign-in-starts-on-microsoft-ime.md) | Solved: default input method set to FKeyIME EN |
+| [After a reboot, the F-keys go to the Microsoft IMEs](sign-in-starts-on-microsoft-ime.md) | **Open again**: the default input method override didn't apply at the 21:50 reboot |
 | [Korean and kana type English letters in some apps](apps-dont-load-fkeyime.md) | Solved: restart apps after installing FKeyIME |
 | [AutoHotkey takes the F-keys away from FKeyIME](autohotkey-takes-the-f-keys.md) | Solved in the AutoHotkey script (Win+Space decides) |
 | [Kanji conversion server crashes every 3 minutes](conversion-server-crashes.md) | Solved: Mozc patch |

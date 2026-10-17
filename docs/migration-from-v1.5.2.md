@@ -108,6 +108,8 @@ Every step changes the system. Do them in order, and keep the backups.
    Time & language → Typing → Advanced keyboard settings). Without the override, each sign-in
    starts on the first input method in your language list (often a Microsoft IME), and the
    F-keys go to AutoHotkey until you pick FKeyIME with Win+Space *(measured after a reboot)*.
+   ⏳ **Even with the override**, a later reboot started on the Microsoft Korean IME *(measured)*.
+   Until that's solved, pick FKeyIME (ENG) once with Win+Space after signing in.
 
 5. ⏳ **Verify** (M6): sign out and back in (apps that were running during the install may not
    use FKeyIME until they restart), then check F18 → `안녕하세요`, F19 → `the"` with
@@ -133,6 +135,11 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 ## Changelog of this guide
 
 One entry per FKeyIME commit (newest first).
+
+- **Sign-in still starts on a Microsoft IME.** Measured after a reboot: even with "Override for
+  default input method" set to FKeyIME EN, the session started on the Microsoft Korean IME. The
+  install step now says so (⏳) and tells you to pick FKeyIME once with Win+Space after signing
+  in. Details: `docs/issues/sign-in-starts-on-microsoft-ime.md`.
 
 - **Settings apply without restarting apps.** A changed FKeyIME setting (such as
   `KeyboardLayout`) now takes effect at the next key in apps that are already open. Before, it
