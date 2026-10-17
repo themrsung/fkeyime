@@ -149,6 +149,9 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Open issues updated.** Sign-in still starts on a Microsoft IME (measured twice); Settings
+  still doesn't list FKeyIME. Keep both caveats in `04-fkeyime.md`. Still not ready.
+
 - **Settings listing, still open.** Measured that Windows Settings lists another third-party IME
   (Mozc) but not FKeyIME; the remaining suspect is FKeyIME's three languages under one CLSID.
   Keep pointing to the Start-menu settings shortcut. Still not ready.

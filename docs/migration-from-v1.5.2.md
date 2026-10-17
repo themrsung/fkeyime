@@ -137,6 +137,10 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Two open issues updated.** Starting in FKeyIME after sign-in still needs Win+Space once
+  (measured again after a reboot). Windows Settings still doesn't list FKeyIME (more causes ruled
+  out). No user-visible change.
+
 - **Registration matches Mozc's.** FKeyIME also calls the older TSF registration (a TIP-level
   "Enable"). Windows Settings still doesn't list FKeyIME's keyboards, though it does list Mozc's
   (measured). No user-visible change.

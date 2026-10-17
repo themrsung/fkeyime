@@ -54,6 +54,13 @@ at boot):
   Explorer.
 - So the override didn't decide the input method at sign-in.
 
+## Third occurrence (reboot at 01:33:48, 2026-10-18)
+
+An unplanned reboot (a Mozc uninstall restarted the PC). Same settings as above, the override
+still FKeyIME EN. FKeyIME's log has **no entry at all** from the boot to 01:37:31, while the
+owner was using the PC *(measured)*: the session started on a Microsoft IME again. The
+override alone doesn't work on this PC, now measured twice.
+
 ## Cause
 
 Not known yet. Hypotheses, none tested:

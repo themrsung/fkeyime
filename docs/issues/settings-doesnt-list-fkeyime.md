@@ -41,10 +41,11 @@ M0, `Mozc64.msi`) installed on the owner's PC, 일본어 → 설치된 키보드
 own 키보드 옵션, next to the Microsoft IME. FKeyIME JA, in the same language list, isn't shown.
 So the cause is specific to FKeyIME.
 
-Remaining difference from Mozc: FKeyIME is **one CLSID with three languages** (en-US, ko-KR,
-ja-JP); Mozc and the Microsoft IMEs have one language per CLSID. Testing it means hiding the EN
-and KO profiles for a moment (deleting their HKLM keys, restored by re-registering); that needs
-the owner's OK.
+**Not the shared CLSID either** *(measured 2026-10-18, with the owner's OK)*: with the TSF key
+exported first, FKeyIME's EN and KO profile keys were deleted so only FKeyIME JA remained under
+its CLSID, like Mozc's single profile. Settings still listed only the Microsoft IME and Mozc
+under 일본어. Re-registering restored all three profiles. Both display strings load
+(`SHLoadIndirectString`: "FKeyIME JA", "Mozc").
 
 All of the kept changes: they match how Mozc's TIP registers (`third_party/mozc/src/win32/base/tsf_registrar.cc`:
 same categories, a display name, an icon index), they're harmless, and the substitute layout had
@@ -52,10 +53,15 @@ no effect on typing (M0). Typing hasn't been re-measured since, though.
 
 ## Cause
 
-Not known. Settings lists Mozc, so third-party IMEs are listed. Hypothesis: Settings skips a
-TIP that registers profiles in several languages. If that's it, the fix needs one CLSID per
-language, which changes `src/tip/guids.h`'s design (its GUIDs are permanent: new ones would be
-added, not changed) and is the owner's decision.
+Not known. Settings lists Mozc, so third-party IMEs are listed, and FKeyIME's HKLM TSF
+registration now has the same shape as Mozc's. Differences left, untested: Mozc was installed
+by an MSI (its custom actions may write more than its TIP registration code shows); its DLLs
+are in `Program Files (x86)\Mozc`; it was added to the language list by its installer rather
+than by `Set-WinUserLanguageList`. Next: install FKeyIME with its own MSI (in a VM) and check
+Settings there.
+
+Side effect of this test: uninstalling Mozc with `msiexec /x … /qb` rebooted the owner's PC
+without warning (exit 1641). Always pass `/norestart`.
 
 ## Workaround
 
