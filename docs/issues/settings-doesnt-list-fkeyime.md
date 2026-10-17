@@ -1,6 +1,8 @@
 # Windows Settings doesn't list FKeyIME under the language's keyboards
 
-**Status:** open (2026-10-17).
+**Status:** open, narrowed (2026-10-18). **Installed with the MSI in Windows Sandbox, FKeyIME
+KO is listed** under Korean's installed keyboards, but with only "Remove": no keyboard
+options, unlike Mozc. On the owner's PC (development install) it still isn't listed at all.
 
 ## Symptom
 
@@ -62,6 +64,17 @@ Settings there.
 
 Side effect of this test: uninstalling Mozc with `msiexec /x … /qb` rebooted the owner's PC
 without warning (exit 1641). Always pass `/norestart`.
+
+## MSI install in Windows Sandbox (2026-10-18)
+
+Windows 11 24H2 (26100) in Windows Sandbox, a clean user, FKeyIME installed with
+`installer/build.ps1`'s MSI (`installer/sandbox/`). Settings → Language & region → Korean →
+Language options → Installed keyboards: **FKeyIME is listed** (owner, by eye), with Remove
+only, no keyboard options. So on the owner's PC the missing entry comes from that PC: its
+development install, the way the profiles first entered its language list
+(`Set-WinUserLanguageList`), or 25H2 *(hypotheses)*. Remaining question: what makes Settings
+offer keyboard options (Mozc has them; FKeyIME implements the same `ITfFnConfigure`). The
+Sandbox check now records whether Settings asks the TIP for anything.
 
 ## Workaround
 

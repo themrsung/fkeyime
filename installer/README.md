@@ -17,6 +17,11 @@ What `Package.wxs` does:
 - Wizard: Welcome → "Do you have an HHKB Studio?" (if yes, the opt-in Mac Eisu / Kana keys,
   `MacLangKeys`) → Install → final page with where to report issues.
 
+Tested in Windows Sandbox (`sandbox/`, 2026-10-18, 24H2): install and uninstall succeed
+without a restart; uninstall removes the files, both registrations, the option, the Start-menu
+shortcut, FKeyIME's keyboards and the default override. Left behind: `ProgramDatakeyime`
+(its logs), and a language the install added (Korean with the Microsoft IME).
+
 Not done yet (`docs/spec.md`, section 7): the device / system page, removing the Microsoft
 IMEs, the keyboard layout and escape-hatch pages, signing, an ARM64 package. The UpgradeCode is
 permanent.

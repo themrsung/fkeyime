@@ -149,6 +149,10 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Installer tested in Windows Sandbox.** Clean install and uninstall, no restart; Settings lists
+  FKeyIME after an MSI install (no keyboard-options button yet). Readiness gate unchanged
+  (unsigned, no device page, not tested on a real PC).
+
 - **Open issues updated.** Sign-in still starts on a Microsoft IME (measured twice); Settings
   still doesn't list FKeyIME. Keep both caveats in `04-fkeyime.md`. Still not ready.
 

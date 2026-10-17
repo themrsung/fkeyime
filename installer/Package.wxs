@@ -95,9 +95,10 @@
       <Custom Action="UserInstall" After="RegisterX86" Condition="NOT REMOVE = &quot;ALL&quot;" />
     </InstallExecuteSequence>
 
-    <!-- Final page (owner, 2026-10-17). -->
+    <!-- Final page (owner, 2026-10-17). The control is small: the first, 370-character text was
+         cut off with "..." (owner, in Windows Sandbox). Keep it short. -->
     <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT"
-              Value="FKeyIME is installed. Apps that were already open start using it after you restart them.&#xA;&#xA;Found a problem? Report it at the FKeyIME GitHub repository: github.com/themrsung/fkeyime/issues. The developer will try to fix it if possible. The FKeyIME settings window (Start menu) can copy the system details for your report." />
+              Value="Restart open apps to use FKeyIME in them.&#xA;&#xA;Found a problem? Report it at github.com/themrsung/fkeyime/issues. The developer will try to fix it if possible. Start menu &gt; FKeyIME settings copies your system details." />
 
     <UI Id="FKeyImeUI">
       <TextStyle Id="WixUI_Font_Normal" FaceName="Segoe UI" Size="9" />

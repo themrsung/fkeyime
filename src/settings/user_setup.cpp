@@ -77,6 +77,15 @@ int UserInstall() {
     // The default input method (Settings: "Override for default input method"). Not enough on
     // its own to start each session in FKeyIME (docs/issues/sign-in-starts-on-microsoft-ime.md).
     error = Call(kEnglish, kIlotDefProfile);
+    // ILOT_DEFPROFILE returns success but leaves the override empty (measured, Windows Sandbox
+    // 24H2): write the value Set-WinDefaultInputMethodOverride writes.
+    if (Override() != kEnglish) {
+        const LSTATUS status = RegSetKeyValueW(HKEY_CURRENT_USER, kUserProfile,
+                                               L"InputMethodOverride", REG_SZ, kEnglish,
+                                               sizeof(kEnglish));
+        Log(L"user-install: write InputMethodOverride: %ld", status);
+        if (status != ERROR_SUCCESS) error = static_cast<int>(status);
+    }
     Log(L"user-install: FKeyIME EN as the default input method: %d (override now %s)", error,
         Override().c_str());
     return error;
