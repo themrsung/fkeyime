@@ -125,6 +125,10 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Diagnostic probe modes.** No user-visible change. A report of Hanja picks also typing the
+  candidate number (Microsoft Korean IME through AutoHotkey, in Notepad) didn't reproduce with
+  `fkeyime_probe.exe --hanja` / `--hanja-fg`, and went away; `--keylog` records key codes if it
+  comes back.
 - **Kanji conversion (development build).** Space converts with a bundled Mozc server: segments,
   candidate window, F6-F10, Escape back to kana. Mozc learns your choices in its own profile
   folder; your Microsoft IME dictionary doesn't carry over. Fixed: Shift no longer splits what

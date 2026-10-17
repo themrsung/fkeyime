@@ -139,6 +139,8 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Diagnostic probe modes.** No change for the 2.0.0 work. Path A note: Hanja on the AutoHotkey
+  path picked correctly in tests (digit, Enter, Down+Enter) in a Win32 Edit and in Notepad.
 - **Kanji conversion (development build).** Still not ready. The Dependencies row now names the
   server process, its memory and its profile folder. New gate condition from the spec: the
   server must run sandboxed before release (spec section 9, "Security").

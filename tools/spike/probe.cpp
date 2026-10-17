@@ -7,6 +7,11 @@
 //   fkeyime_probe.exe --typing [EN|KO|JA]    (--typing-rich: in a TSF-aware RichEdit)
 //       Types key sequences by scan code in each mode and checks the text that lands: JIS
 //       English, Korean 2-Set, Japanese kana with F6-F8 (docs/spec.md, M1-M3).
+//   fkeyime_probe.exe --hanja | --hanja-rich | --hanja-fg
+//       Microsoft Korean IME Hanja through the AutoHotkey path (F18, 한, F17, then picking with a
+//       digit, Enter or Down+Enter), in the probe's control or the foreground window (--hanja-fg).
+//   fkeyime_probe.exe --keylog [seconds]
+//       Records key codes (no text) with a low-level hook, then the foreground control's text.
 //   fkeyime_probe.exe --handoff [rounds]
 //       FKeyIME API + AutoHotkey hand-off (docs/api.md): F18-F20 must reach FKeyIME while it's
 //       active, the API must report its mode, and with a Microsoft IME active the keys must go to
@@ -119,6 +124,156 @@ HRESULT Activate(const TF_INPUTPROCESSORPROFILE& p, DWORD flags) {
         profiles->Release();
     }
     return hr;
+}
+
+std::wstring Escaped(const std::wstring& s);
+
+// --hanja: the Microsoft Korean IME's Hanja conversion through the AutoHotkey path (F18 for 한,
+// F17 for 한자), picking the candidate with a digit and with Enter. Prints what lands.
+int Hanja() {
+    TF_INPUTPROCESSORPROFILE ms = {};
+    ms.dwProfileType = TF_PROFILETYPE_INPUTPROCESSOR;
+    ms.langid = 0x0412;
+    ms.clsid = {0xa028ae76, 0x01b1, 0x46c2, {0x99, 0xc4, 0xac, 0xd9, 0x85, 0x8a, 0xe0, 0x2f}};
+    ms.guidProfile = {0xb5fe1f02, 0xd5f2, 0x4445, {0x9c, 0x03, 0xc5, 0x68, 0xf2, 0x3c, 0x99, 0xa1}};
+    std::wprintf(L"Microsoft Korean IME: hr=%#lx\n", Activate(ms, TF_IPPMF_FORPROCESS));
+    Pump(300);
+    struct Pick {
+        const wchar_t* name;
+        WORD vk, scan;
+        bool down_first;
+    };
+    for (const Pick& pick : {Pick{L"digit 1", 0, 0x02, false}, Pick{L"Enter", VK_RETURN, 0x1c, false},
+                             Pick{L"Down, Enter", VK_RETURN, 0x1c, true},
+                             Pick{L"Down, digit 2", 0, 0x03, true}}) {
+        SetWindowTextW(g_edit, L"");
+        Pump(100);
+        SendKey(VK_F18, 0x69);  // AutoHotkey: 한 mode
+        Pump(400);
+        for (WORD scan : {WORD{0x22}, WORD{0x25}, WORD{0x1f}}) {  // ㅎ ㅏ ㄴ = 한
+            SendKey(0, scan, false, true);
+            Pump(60);
+        }
+        SendKey(VK_F17, 0x68);  // AutoHotkey: VK_HANJA
+        Pump(600);
+        if (pick.down_first) {
+            SendKey(VK_DOWN, 0x50, false, false, true);
+            Pump(300);
+        }
+        SendKey(pick.vk, pick.scan, false, pick.vk == 0);
+        Pump(400);
+        wchar_t text[64] = L"";
+        GetWindowTextW(g_edit, text, 64);
+        std::wprintf(L"pick with %s: [%s]\n", pick.name, Escaped(text).c_str());
+    }
+    std::wprintf(L"restored the session's input method (hr=%#lx)\n", Activate(g_prior, TF_IPPMF_FORSESSION));
+    return 0;
+}
+
+// The text of the foreground window's edit control (Windows 11 Notepad: RichEditD2DPT).
+std::wstring ForegroundText() {
+    struct Find {
+        HWND found = nullptr;
+    } find;
+    EnumChildWindows(GetForegroundWindow(), [](HWND w, LPARAM p) -> BOOL {
+        wchar_t cls[64] = L"";
+        GetClassNameW(w, cls, 64);
+        if ((!wcscmp(cls, L"RichEditD2DPT") || !wcscmp(cls, L"Edit")) && IsWindowVisible(w)) {
+            reinterpret_cast<Find*>(p)->found = w;
+            return FALSE;
+        }
+        return TRUE;
+    }, reinterpret_cast<LPARAM>(&find));
+    if (!find.found) return L"(no edit control)";
+    wchar_t text[256] = L"";
+    SendMessageTimeoutW(find.found, WM_GETTEXT, 256, reinterpret_cast<LPARAM>(text), SMTO_ABORTIFHUNG,
+                        1000, nullptr);
+    return text;
+}
+
+// --hanja-fg: the same Hanja keys as --hanja, typed into the foreground window (e.g. Notepad),
+// clearing it with Ctrl+A, Delete before each try. Reads back through WM_GETTEXT.
+int HanjaForeground() {
+    wchar_t title[256] = L"";
+    GetWindowTextW(GetForegroundWindow(), title, 256);
+    std::wprintf(L"foreground window \"%s\"\n", title);
+    struct Pick {
+        const wchar_t* name;
+        WORD vk, scan;
+        bool down_first;
+    };
+    for (int round = 0; round < 2; ++round) {
+        for (const Pick& pick : {Pick{L"Down, Enter", VK_RETURN, 0x1c, true},
+                                 Pick{L"Enter", VK_RETURN, 0x1c, false},
+                                 Pick{L"digit 1", 0, 0x02, false}}) {
+            INPUT in[4] = {};
+            for (INPUT& i : in) i.type = INPUT_KEYBOARD;
+            in[0].ki.wVk = VK_CONTROL;
+            in[1].ki.wVk = 'A';
+            in[2].ki.wVk = 'A';
+            in[2].ki.dwFlags = KEYEVENTF_KEYUP;
+            in[3].ki.wVk = VK_CONTROL;
+            in[3].ki.dwFlags = KEYEVENTF_KEYUP;
+            SendInput(4, in, sizeof(INPUT));
+            Pump(150);
+            SendKey(VK_DELETE, 0x53, false, false, true);
+            Pump(200);
+            SendKey(VK_F18, 0x69);  // AutoHotkey: Microsoft Korean IME, 한 mode
+            Pump(500);
+            for (WORD scan : {WORD{0x22}, WORD{0x25}, WORD{0x1f}}) {  // 한
+                SendKey(0, scan, false, true);
+                Pump(80);
+            }
+            SendKey(VK_F17, 0x68);  // AutoHotkey: VK_HANJA
+            Pump(700);
+            if (pick.down_first) {
+                SendKey(VK_DOWN, 0x50, false, false, true);
+                Pump(300);
+            }
+            SendKey(pick.vk, pick.scan, false, pick.vk == 0);
+            Pump(500);
+            std::wprintf(L"round %d, pick with %s: [%s]\n", round + 1, pick.name,
+                         Escaped(ForegroundText()).c_str());
+        }
+    }
+    return 0;
+}
+
+// --keylog <seconds>: records every key event (codes only, no text) with a low-level hook, for
+// diagnosing physical-keyboard issues. Then prints the foreground edit control's text.
+struct KeyRecord {
+    DWORD time, vk, scan, flags;
+    bool up;
+};
+std::vector<KeyRecord>* g_keylog = nullptr;
+
+LRESULT CALLBACK KeyLogHook(int code, WPARAM wp, LPARAM lp) {
+    if (code == HC_ACTION && g_keylog) {
+        const auto* k = reinterpret_cast<const KBDLLHOOKSTRUCT*>(lp);
+        g_keylog->push_back({k->time, k->vkCode, k->scanCode, k->flags,
+                             wp == WM_KEYUP || wp == WM_SYSKEYUP});
+    }
+    return CallNextHookEx(nullptr, code, wp, lp);
+}
+
+int KeyLog(int seconds) {
+    std::vector<KeyRecord> records;
+    g_keylog = &records;
+    HHOOK hook = SetWindowsHookExW(WH_KEYBOARD_LL, KeyLogHook, GetModuleHandleW(nullptr), 0);
+    std::wprintf(L"recording keys for %d s (hook=%d)\n", seconds, hook != nullptr);
+    Pump(seconds * 1000);
+    UnhookWindowsHookEx(hook);
+    g_keylog = nullptr;
+    const DWORD t0 = records.empty() ? 0 : records.front().time;
+    for (const KeyRecord& r : records) {
+        std::wprintf(L"%6lu ms %-4s vk=%02lX sc=%03lX%s%s\n", r.time - t0, r.up ? L"up" : L"down",
+                     r.vk, r.scan, (r.flags & LLKHF_EXTENDED) ? L" ext" : L"",
+                     (r.flags & LLKHF_INJECTED) ? L" INJECTED" : L"");
+    }
+    wchar_t title[256] = L"";
+    GetWindowTextW(GetForegroundWindow(), title, 256);
+    std::wprintf(L"foreground \"%s\" text: [%s]\n", title, Escaped(ForegroundText()).c_str());
+    return 0;
 }
 
 int Handoff(int rounds) {
@@ -408,10 +563,13 @@ int SendToForeground() {
 
 int wmain(int argc, wchar_t** argv) {
     if (argc > 1 && !wcscmp(argv[1], L"--send")) return SendToForeground();
+    if (argc > 1 && !wcscmp(argv[1], L"--hanja-fg")) return HanjaForeground();
+    if (argc > 1 && !wcscmp(argv[1], L"--keylog")) return KeyLog(argc > 2 ? _wtoi(argv[2]) : 30);
     const bool handoff = argc > 1 && !wcscmp(argv[1], L"--handoff");
     // --typing-rich: the same cases in a TSF-aware RichEdit instead of the IMM-based Edit.
-    const bool rich = argc > 1 && !wcscmp(argv[1], L"--typing-rich");
+    const bool rich = argc > 1 && (!wcscmp(argv[1], L"--typing-rich") || !wcscmp(argv[1], L"--hanja-rich"));
     const bool typing = rich || (argc > 1 && !wcscmp(argv[1], L"--typing"));
+    const bool hanja = argc > 1 && (!wcscmp(argv[1], L"--hanja") || !wcscmp(argv[1], L"--hanja-rich"));
     const int rounds =
         handoff ? (argc > 2 ? _wtoi(argv[2]) : 20) : (argc > 1 ? _wtoi(argv[1]) : 20);
     HWND frame = CreateWindowExW(0, L"STATIC", L"FKeyIME probe", WS_OVERLAPPEDWINDOW | WS_VISIBLE,
@@ -450,6 +608,11 @@ int wmain(int argc, wchar_t** argv) {
         SetFocus(g_edit);
     }
     std::wprintf(L"foreground=%d\n", GetForegroundWindow() == frame);
+    if (hanja) {
+        const int result = Hanja();
+        DestroyWindow(frame);
+        return result;
+    }
     if (handoff || typing) {
         const int result = handoff ? Handoff(rounds) : Typing(argc > 2 ? argv[2] : nullptr);
         DestroyWindow(frame);
