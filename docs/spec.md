@@ -119,6 +119,14 @@ One TSF TIP (in-proc COM DLL, C++20) with **three language profiles** under one 
 - A TIP only sees keys while one of its own profiles is active. Another program's low-level
   keyboard hook gets F17–F20 first: v1.5.2's AutoHotkey script took them all until it was
   stopped *(measured)*. The MSI must make sure AutoHotkey switching is off.
+- **After signing in, Windows starts with the first input method in the language list**, not
+  FKeyIME *(measured 2026-10-17, after a reboot)*: the list was ko (Microsoft Korean IME first), ja,
+  en-US, so the session started on the Microsoft Korean IME, the FKeyIME-aware AutoHotkey script
+  correctly handled the F-keys the Microsoft way, and FKeyIME only took over after the owner
+  picked it with Win+Space. Fix: Windows' default input method override set to FKeyIME EN
+  (`Set-WinDefaultInputMethodOverride -InputTip "0409:{66749D2A-1770-43D3-A269-A051B5BC1AAA}{8F61A2C0-75BC-4042-B739-CC7D63B542E5}"`,
+  or Settings → Time & language → Typing → Advanced keyboard settings). The installer (M5) must
+  offer it, and uninstalling must clear it.
 - **Apps already running when FKeyIME is installed, updated or reinstalled may not load it until
   they restart** *(measured 2026-10-17)*: Notepad, Claude, Opera, Edge and Windows Terminal,
   running since before the day's reinstalls (and the rename from FKeyIDE), switched to FKeyIME's

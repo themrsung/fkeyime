@@ -103,7 +103,10 @@ Every step changes the system. Do them in order, and keep the backups.
    wired mouse connected, the wizard suggests removing them and it's one click to accept.
    Otherwise it's two clicks (start, then confirm). They stay installed either way, and you can
    remove them later in Settings → Time & language → Language & region. Turn **off** "Let me use a different input method for each app
-   window" (Settings → Time & language → Typing → Advanced keyboard settings).
+   window", and set "Override for default input method" to **FKeyIME EN** (both in Settings →
+   Time & language → Typing → Advanced keyboard settings). Without the override, each sign-in
+   starts on the first input method in your language list (often a Microsoft IME), and the
+   F-keys go to AutoHotkey until you pick FKeyIME with Win+Space *(measured after a reboot)*.
 
 5. ⏳ **Verify** (M6): sign out and back in (apps that were running during the install may not
    use FKeyIME until they restart), then check F18 → `안녕하세요`, F19 → `the"` with
@@ -130,6 +133,9 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Start in FKeyIME after signing in.** Step 4 now sets Windows' default input method to
+  FKeyIME EN: without it, sign-in started on the Microsoft Korean IME and the F-keys went to
+  AutoHotkey until FKeyIME was picked with Win+Space.
 - **Preview of hhkb-ekj-trilingual 2.0.0.** Its `experimental/2.0.0-preview` branch now offers
   FKeyIME as Path B next to AutoHotkey. This guide also covers v1.5.3, whose Windows setup is
   unchanged from v1.5.2.

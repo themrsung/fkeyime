@@ -147,6 +147,10 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Default input method.** The preview's `docs/windows/04-fkeyime.md` (branch
+  `experimental/2.0.0-preview`) needs one more install step, next to "one input method for all
+  windows": set "Override for default input method" to FKeyIME EN, or sign-in starts on a
+  Microsoft IME (FKeyIME spec, section 3). Not yet applied to that branch. Still not ready.
 - **2.0.0-preview pushed.** hhkb-ekj-trilingual's `experimental/2.0.0-preview` branch carries the
   changes from section 4 on top of v1.5.3, with FKeyIME pinned at 33209e2. New note above the
   gate lists how the preview differs from the plan. The gate itself is still not met.
