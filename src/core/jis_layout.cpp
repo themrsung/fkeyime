@@ -20,6 +20,16 @@ constexpr Key kAscii[] = {
     {0x33, u',', u'<'}, {0x34, u'.', u'>'}, {0x35, u'/', u'?'}, {scan::kRo, u'\\', u'_'},
 };
 
+// US ANSI keycaps.
+constexpr Key kAnsiAscii[] = {
+    {0x02, u'1', u'!'}, {0x03, u'2', u'@'}, {0x04, u'3', u'#'}, {0x05, u'4', u'$'},
+    {0x06, u'5', u'%'}, {0x07, u'6', u'^'}, {0x08, u'7', u'&'}, {0x09, u'8', u'*'},
+    {0x0A, u'9', u'('}, {0x0B, u'0', u')'}, {0x0C, u'-', u'_'}, {0x0D, u'=', u'+'},
+    {0x1A, u'[', u'{'}, {0x1B, u']', u'}'}, {0x2B, u'\\', u'|'},
+    {0x27, u';', u':'}, {0x28, u'\'', u'"'}, {scan::kGrave, u'`', u'~'},
+    {0x33, u',', u'<'}, {0x34, u'.', u'>'}, {0x35, u'/', u'?'},
+};
+
 // Letter scan codes in QWERTY order of the key rows.
 constexpr Key kLetters[] = {
     {0x10, u'q', 0}, {0x11, u'w', 0}, {0x12, u'e', 0}, {0x13, u'r', 0}, {0x14, u't', 0},
@@ -71,10 +81,15 @@ const Key* Find(const Key (&table)[N], std::uint8_t scan) {
 }  // namespace
 
 char16_t Ascii(std::uint8_t scan, bool shift, bool caps) {
+    return Ascii(Layout::kJis, scan, shift, caps);
+}
+
+char16_t Ascii(Layout layout, std::uint8_t scan, bool shift, bool caps) {
     if (const Key* k = Find(kLetters, scan)) {
         return shift != caps ? static_cast<char16_t>(k->normal - u'a' + u'A') : k->normal;
     }
-    if (const Key* k = Find(kAscii, scan)) return shift ? k->shifted : k->normal;
+    const Key* k = layout == Layout::kAnsi ? Find(kAnsiAscii, scan) : Find(kAscii, scan);
+    if (k) return shift ? k->shifted : k->normal;
     return 0;
 }
 
@@ -88,6 +103,11 @@ char16_t Kana(std::uint8_t scan, bool shift) {
     const Key* k = Find(kKana, scan);
     if (!k) return 0;
     return shift && k->shifted ? k->shifted : k->normal;
+}
+
+char16_t AnsiSpareKana(std::uint8_t scan, bool shift) {
+    if (scan != scan::kGrave) return 0;
+    return shift ? u'ろ' : u'ー';
 }
 
 }  // namespace fkeyime::jis

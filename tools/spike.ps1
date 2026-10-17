@@ -52,7 +52,9 @@ Start-Transcript "$data\spike.ps1.log" -Append | Out-Null
 trap { Write-Host $_ -ForegroundColor Red; Write-Host $_.ScriptStackTrace; Stop-Transcript | Out-Null; exit 1 }
 
 if ($Option) {
-    New-Item $optionsKey -Force | Out-Null
+    # -Force on an existing key tries to recreate it and fails ("Requested registry access is
+    # not allowed"), even elevated.
+    if (-not (Test-Path $optionsKey)) { New-Item $optionsKey | Out-Null }
     foreach ($o in ($Option -join ',').Split(',')) {
         $name, $value = $o.Split('=')
         Set-ItemProperty $optionsKey $name ([int]$value) -Type DWord

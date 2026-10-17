@@ -20,6 +20,8 @@ JIS, keymap Profile 4), with the cause and the fix for each. Read the matching f
 | [Shift splits what's being typed](shift-splits-the-composition.md) | Solved |
 | [Symbols in English and Korean are US, not JIS](us-symbols-in-english-and-korean.md) | Solved: FKeyIME's own key table |
 | [USB mouse dead after a reboot](usb-mouse-after-reboot.md) | Not FKeyIME: the USB-C dock's hub port |
+| [Mouse, trackpad and Tab dead after a test](start-menu-holds-input.md) | Solved: restart the Start menu process. Caused by a test injecting Right Win |
+| [Right Win / Right Ctrl / Right Alt taps never reach FKeyIME](modifier-taps-unreachable.md) | Not fixable in a TIP: the escape hatch uses ``Alt+` `` instead |
 
 ## Building and testing
 

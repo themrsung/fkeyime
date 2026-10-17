@@ -22,4 +22,7 @@ HRESULT InsertAtSelection(TfEditCookie ec, ITfContext* context, std::wstring_vie
 // Puts a collapsed selection (the caret) at the end of `range`.
 HRESULT CaretToEnd(TfEditCookie ec, ITfContext* context, ITfRange* range);
 
+// True when the context's selection lies within `range` (both ends inclusive).
+bool CaretInside(TfEditCookie ec, ITfContext* context, ITfRange* range);
+
 }  // namespace fkeyime

@@ -64,6 +64,30 @@ TEST_CASE("jis: kana layout") {
     CHECK(jis::Kana(0x34, true) == u'。');
 }
 
+TEST_CASE("jis: US ANSI symbols follow the US keycaps") {
+    using jis::Layout;
+    CHECK(jis::Ascii(Layout::kAnsi, 0x03, true) == u'@');         // Shift+2
+    CHECK(jis::Ascii(Layout::kAnsi, 0x07, true) == u'^');
+    CHECK(jis::Ascii(Layout::kAnsi, 0x0B, true) == u')');
+    CHECK(jis::Ascii(Layout::kAnsi, 0x0D, false) == u'=');
+    CHECK(jis::Ascii(Layout::kAnsi, 0x1A, false) == u'[');
+    CHECK(jis::Ascii(Layout::kAnsi, 0x28, false) == u'\'');
+    CHECK(jis::Ascii(Layout::kAnsi, 0x28, true) == u'"');
+    CHECK(jis::Ascii(Layout::kAnsi, 0x2B, false) == u'\\');     // \ above Enter
+    CHECK(jis::Ascii(Layout::kAnsi, 0x2B, true) == u'|');
+    CHECK(jis::Ascii(Layout::kAnsi, jis::scan::kGrave, true) == u'~');
+    CHECK(jis::Ascii(Layout::kAnsi, jis::scan::kRo, false) == 0);  // no such key on ANSI
+    CHECK(jis::Ascii(Layout::kAnsi, 0x1E, true) == u'A');
+    CHECK(jis::Ascii(Layout::kJis, 0x03, true) == u'"');
+}
+
+TEST_CASE("jis: US ANSI spare key for the missing kana") {
+    CHECK(jis::AnsiSpareKana(jis::scan::kGrave, false) == u'ー');
+    CHECK(jis::AnsiSpareKana(jis::scan::kGrave, true) == u'ろ');
+    CHECK(jis::AnsiSpareKana(0x2B, false) == 0);
+    CHECK(jis::Kana(0x2B, false) == u'む');  // ANSI \ key: JIS む position
+}
+
 TEST_CASE("hangul: words") {
     CHECK(TypeHangul(u"ㅇㅏㄴㄴㅕㅇㅎㅏㅅㅔㅇㅛ") == u"안녕하세요");
     CHECK(TypeHangul(u"ㅎㅏㄴㄱㅡㄹ") == u"한글");

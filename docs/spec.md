@@ -163,6 +163,7 @@ Decided by the owner (2026-10-17):
 | 8 | JIS symbols in English and Korean | **(b): FKeyIME's own key table in every mode**, no Microsoft layout or IME code for text |
 | A/B | Japanese engine | **Option B**: own TIP, `mozc_server` for conversion only |
 | 9 | 한/영 key toggle | **Removed** for now (reverted in 876010c) |
+| 12 | Keyboards that can't send F16-F20 (US ANSI boards without remapping, or no remap software) | **Escape hatch, off by default, no remap needed**: ``Alt+` `` (and optionally Menu) cycles English → Korean → Japanese → English (Japanese in kana or romaji, a setting), ``Alt+Shift+` `` acts as F17. The installer asks (section 7). The cycle is the one exception to "a mode key never toggles" (section 8) |
 
 Still open (the implemented default stands until the owner says otherwise):
 
@@ -278,6 +279,13 @@ Requirements from the owner (2026-10-17):
 4. **Keeping the Microsoft IMEs is always the default.** Clicking Next through the whole wizard
    never removes them.
 
+5. **Keyboard page** (owner, 2026-10-17): JIS or US ANSI (`KeyboardLayout`, section 8). For US
+   ANSI, the ー / ろ route (`AnsiExtraKeys`), then: "Can your keyboard send F16-F20 (remapping in
+   its firmware or a remap tool)?" If not, offer the escape hatch: ``Alt+` `` and/or Menu cycle the modes
+   (`CycleKeys`), Japanese by kana or romaji (`CycleJapanese`), ``Alt+Shift+` `` as F17 (`F17Keys`).
+   **Every escape-hatch option is off by default**; Next without choosing leaves them off. The
+   wizard writes them to `HKLM\Software\fkeyime` (section 8: packaged apps can't read HKCU).
+
 Removal only takes them out of the language list. They stay installed, and uninstalling FKeyIME
 puts them back.
 
@@ -297,7 +305,7 @@ composers are pure C++ with unit tests (`src/core/hangul.*`, `src/core/kana.*`,
 | --- | --- | --- |
 | English (F19) | letters, digits, symbols | Inserted directly, JIS keycaps macOS style: Shift+2 `"`, ろ `\` / `_`, ¥ `¥` / `\|`, `@` `[` `:` … Caps Lock (F17) uppercases letters, Shift reverses it |
 | Korean (F18) | letter keys | 2-Set syllables, composed in place (underlined, block cursor). Backspace removes one jamo (ㅘ → ㅗ, ㄳ → ㄱ). A final moves to the next syllable before a vowel (각+ㅏ → 가가) |
-| Korean | digits, symbols | JIS symbols; they end the syllable first |
+| Korean | digits, symbols | JIS symbols (US symbols with `KeyboardLayout=1`, below); they end the syllable first |
 | Japanese (F20) | every key | JIS kana layout (かな入力), hiragana, composed in place. ゛ / ゜ combine with the kana before. Shift gives small kana, を, 「」、。・ |
 | Japanese, composing | F6 / F7 / F8 | Whole composition to hiragana / full-width katakana / half-width katakana, like macOS. The next kana typed accepts it; Escape undoes it |
 | Japanese, composing | Space | Kanji conversion (section 9). Without the conversion server, accepts the kana as they are |
@@ -317,6 +325,89 @@ controls and similar), both measured with `fkeyime_probe.exe --typing`:
   delayed until the app has processed the commit (a 30 ms timer, or the next key, whichever comes
   first). Switching at once made the compatibility layer deliver a Korean syllable twice
   (가 F19 → 가가). Keys typed in between already follow the new mode.
+
+### US ANSI keyboards (option, built 2026-10-17, not measured on a device yet)
+
+A US ANSI board reports the JIS scan code at every key position the two share *(documented: PS/2
+set 1)*, so only the printed symbols differ. Its `` ` `` key is JIS 半角/全角 (0x29), its \ key above
+Enter is JIS ] / む (0x2B), and it has no ろ (0x73) or ¥ (0x7D) key. Measured on the TFG Magnetox
+(104-key ANSI) before this option: English, Korean and kana typed, with the symbols at their JIS
+positions (the \ key gave `]`).
+
+Options are DWORDs in `HKCU\Software\fkeyime`, else `HKLM\Software\fkeyime`. **Set them in
+HKLM** (`tools/spike.ps1 -Option`, later the installer): packaged (Store) apps don't see the
+user's `HKCU\Software\fkeyime` and fall back to HKLM *(measured: Notepad read `KeyboardLayout=0`
+with only HKCU set, conhost read 1)*. HKLM is readable by all app packages (its ACL grants ALL
+APPLICATION PACKAGES read). The keyboard options (this section) are read again whenever an app's
+window gets focus, so a change applies without restarting apps *(measured: a running Notepad
+picked up HKLM values on focus)*.
+
+| Option | Values |
+| --- | --- |
+| `KeyboardLayout` | `0` JIS (default): the table above. `1` US ANSI: English and the symbols in Korean follow the US keycaps (Shift+2 `@`, `'` `"`, `\` `\|`, `` ` `` `~` …). Letters, 2-Set and the kana positions don't change |
+| `AnsiExtraKeys` | US ANSI only: how to type the two kana ANSI has no key for, ー (JIS ¥ key) and ろ. Bits, default `3` (both). `1` the spare `` ` `` key: `` ` `` = ー, Shift+`` ` `` = ろ (owner's choice: ー is far more common). `2` F14 = ー, F15 = ろ, for a keyboard whose firmware sends them (F16-F20 keep their meanings) |
+
+Kana on US ANSI: every other kana sits where JIS has it, including ゛ on `[`, ゜ on `]` and む on
+the \ key. F14 / F15 are only read in kana input; elsewhere they pass to the app as before.
+
+```powershell
+tools/spike.ps1 -Option KeyboardLayout=1   # HKLM, elevated
+```
+
+### Escape hatch: no F16-F20 (option, built and probe-tested 2026-10-17)
+
+For keyboards that can't send F16-F20 (a US ANSI board without remapping, or a user who doesn't
+want remap software). No remap of any kind is needed. Off by default (owner's decision 12); the
+installer asks (section 7). Independent of `KeyboardLayout`.
+
+| Option | Values |
+| --- | --- |
+| `CycleKeys` | Bits, `0` off (default). `1` **``Alt+` ``** cycles English → Korean → Japanese → English. `2` **Menu** (the context-menu key) does the same. It acts like the F-key for the next mode (F18, F20 or F16, F19), so a composition ends first and Caps Lock turns off |
+| `CycleJapanese` | Which input the cycle enters Japanese with: `0` kana (F20, default), `1` romaji (F16; romaji input isn't built yet, so it types English for now) |
+| `F17Keys` | Bits, `0` off (default). `1` **``Alt+Shift+` ``** acts as F17: Hanja, the transient other Japanese input, or transient Caps Lock |
+
+Why these keys (owner, 2026-10-17): every ANSI board has the `` ` `` key, compact ones included, and Windows
+itself doesn't use ``Alt+` ``; Microsoft's Japanese IME uses it as on/off on US keyboards, so it's a
+known input-method combo. Ctrl+Tab, Ctrl+Space, Shift+Space, Ctrl+Shift+digit and Alt+digit were
+rejected for app conflicts. ``Ctrl+Shift+` `` is VS Code's new terminal.
+
+How it works *(measured with `fkeyime_probe --typing COMBO` / `--typing-rich COMBO`)*:
+
+- ``Alt+` ``, ``Alt+Shift+` `` and Menu are TSF preserved keys, like F16-F20, so the app never sees them.
+  Under the US and Korean layouts ` is `VK_OEM_3`.
+- Under the Japanese layout (Japanese mode), ``Alt+` `` is `VK_KANJI` and no preserved key matches it;
+  it reaches the key event sink, where FKeyIME catches it by scan code (`0x29`) with Alt down. It
+  works with Windows' own Japanese on/off hotkey (`IME_JHOTKEY_CLOSE_OPEN`, Alt+半角/全角) left as
+  it is: no Windows setting changes.
+- Menu: FKeyIME also eats its key-up. In TSF-aware controls (RichEdit, which Notepad uses) there's
+  no context menu. **Classic Win32 Edit controls still open their context menu** (old dialogs),
+  even though FKeyIME eats both key-down and key-up there *(measured; cause not found)*.
+- An app may end the composition itself when Alt goes down (RichEdit does). FKeyIME then moves the
+  caret past the composition, or the next text would land in front of it (measured: あ가 instead
+  of 가あ, fixed).
+
+| Case (probe) | Win32 Edit | RichEdit (TSF) |
+| --- | --- | --- |
+| ``Alt+` `` cycles EN → KO → JA → EN | Pass | Pass |
+| ``Alt+Shift+` `` acts as F17 (Caps Lock in English) | Pass | Pass |
+| ``Alt+` `` ends a Korean composition, then kana | Pass | Pass |
+| Menu cycles EN → KO → JA → EN | Cycles, but the context menu opens | Pass |
+| ANSI ` types ー in kana | Pass | Pass |
+
+Not measured yet: the physical keyboard, browsers, Office, terminals.
+
+**Rejected after measuring:** lone taps of Right Win, Right Ctrl and Right Alt. None reached the
+TIP, through the key event sink or as a TSF preserved key, including `TF_MOD_ON_KEYUP` (the way
+IMEs bind a tap of Shift). Right Alt's key-up put the window in menu mode, and an injected Right
+Win opened the Start menu, which then held all mouse and keyboard input (`docs/issues/`). A
+Windows key remap (`Scancode Map`) would work but was rejected by the owner: a required remap
+defeats the purpose.
+
+Like F17-F20, these keys only work where FKeyIME is the active input method and a window has
+focus *(inferred from how TIPs load)*.
+
+The cycle is the one key that toggles: it breaks "a mode key never toggles out" (section 1) on
+purpose, because one key can't name three modes. The F-keys keep the rule.
 
 ### Measured (owner's PC, 2026-10-17)
 

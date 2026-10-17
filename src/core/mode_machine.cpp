@@ -69,4 +69,13 @@ Result OnFKey(const State& current, FKey key, bool has_modifiers, const Policy& 
     return {.eaten = false, .next = current};
 }
 
+FKey CycleKey(Mode current, JapaneseInput japanese) {
+    switch (current) {
+        case Mode::kEnglish: return FKey::kF18;
+        case Mode::kKorean: return japanese == JapaneseInput::kRomaji ? FKey::kF16 : FKey::kF20;
+        case Mode::kJapanese: return FKey::kF19;
+    }
+    return FKey::kF19;
+}
+
 }  // namespace fkeyime

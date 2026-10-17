@@ -68,11 +68,12 @@ Tell the user plainly: **choosing FKeyIME installs dependencies.** Path A has on
 | | Path A: AutoHotkey (legacy, v1.5.2) | Path B: FKeyIME |
 | --- | --- | --- |
 | **Dependencies** | AutoHotkey v2 + a script in the docs + a logon task. All user-level, readable | **FKeyIME MSI**: system-wide in-process COM DLLs (x64 + x86) loaded into every app that takes text input, the bundled **Mozc** conversion server (`fkeyime_mozc_server.exe`, about 23 MB of memory while running, its own profile folder `%LOCALAPPDATA%Low\FKeyIME Mozc` with what it learned), binaries from a separate BSD-3-Clause repo. Needs admin to install. Updates come from FKeyIME releases |
-| Korean | Microsoft Korean IME, **US ANSI symbols** (the compromise), full Hanja | FKeyIME's own 2-Set, **JIS symbols** from its own table (decided; check the release). Hanja for single syllables only. No 3-Set, no old Hangul |
+| Korean | Microsoft Korean IME, **US ANSI symbols** (the compromise), full Hanja | FKeyIME's own 2-Set, **JIS symbols** from its own table (decided; check the release), or US symbols with the `KeyboardLayout=1` setting on an ANSI board (built, not measured yet). Hanja for single syllables only. No 3-Set, no old Hangul |
 | English | Japanese with the IME off: JIS symbols, taskbar shows JA | Real en-US profile, taskbar shows EN, JIS symbols from FKeyIME's own table. Apps that read raw keys (games, some terminals) still see the Windows layout |
 | Japanese | Microsoft Japanese IME (cloud suggestions, MS user dictionary) | FKeyIME's own IME and kana table (F6/F7/F8 like macOS), with a bundled, renamed `mozc_server` for conversion only (Option B, decided): offline, different conversion, no MS dictionary |
 | F17 | 한자 in Korean only | Hanja / transient other Japanese input / transient Caps Lock |
 | F16 | Not used | Japanese with romaji input (needs a key set to F16; FKeyIME spec, open question 11) |
+| Keyboard without F16-F20 | Needs the keymap (HHKB Profile 4, or a remap tool) | Same, or the optional escape hatch (off by default, no remap): ``Alt+` `` (or Menu) cycles English → Korean → Japanese, ``Alt+Shift+` `` acts as F17. Probe-tested, not yet on a keyboard |
 | Both installed | — | Supported with the FKeyIME-aware AutoHotkey script. Win+Space picks: with FKeyIME chosen, F-keys go to FKeyIME everywhere (windows still on a Microsoft IME are moved to it); with a Microsoft IME chosen, AutoHotkey switches as in v1.5.2 |
 | Consistency | Per-window language, can drift (`issues/windows-inconsistent-symbols.md`); 150 ms wait-and-retry | One global mode, no message posting or retries. M0 measured about 5 ms per switch, with every app following within about 25 ms (median) |
 | Elevated (admin) windows | Doesn't switch (UIPI) | Works |
@@ -147,6 +148,16 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **US ANSI keyboards, and an escape hatch without F16-F20.** FKeyIME now has, off by default
+  in `HKLM\Software\fkeyime` (FKeyIME spec, sections 7 and 8):
+  - `KeyboardLayout=1` for US ANSI boards, with `AnsiExtraKeys` for ー and ろ (the `` ` `` key, or
+    F14 / F15 from the keyboard's firmware);
+  - for keyboards that can't send F16-F20, no remap needed: ``Alt+` `` (or Menu) cycles English →
+    Korean → Japanese (`CycleKeys`, `CycleJapanese`), ``Alt+Shift+` `` acts as F17 (`F17Keys`).
+
+  The preview's 104/108-key page says Path B doesn't fit ANSI keycaps. Once these are tried on a
+  keyboard (so far only FKeyIME's test program), that page can offer Path B with them; for the
+  F14 / F15 route, say which keys to set in the keymap tool. Still not ready.
 - **Issue notes.** FKeyIME's `docs/issues/` lists the problems met so far with causes and
   solutions. Path B's `issues/` entries in hhkb-ekj-trilingual can link to them at the pinned
   commit instead of repeating them. Still not ready.

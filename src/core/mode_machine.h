@@ -56,4 +56,9 @@ struct Result {
 // (open question 5: modified F-keys stay unused).
 Result OnFKey(const State& current, FKey key, bool has_modifiers, const Policy& policy = {});
 
+// The cycle key (options CycleKeys, an escape hatch for keyboards that can't send F16-F20): the
+// F-key it stands for in `current`. English -> Korean -> Japanese -> English; Japanese is entered
+// with F20 (kana) or F16 (romaji), per `japanese`.
+FKey CycleKey(Mode current, JapaneseInput japanese);
+
 }  // namespace fkeyime

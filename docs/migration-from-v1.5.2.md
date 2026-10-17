@@ -23,7 +23,8 @@ Korean and Japanese IMEs, started by the `hhkb-ekj-trilingual` logon task.
 | **macOS** (Karabiner + Hammerspoon, Profile1) | Nothing. FKeyIME is Windows-only, and macOS is unchanged |
 | **Windows**, Profile 4 + AutoHotkey | This guide, if you want FKeyIME. AutoHotkey stays supported as the legacy option |
 | **Windows**, Profile3 fallback (no AutoHotkey) | Optional. FKeyIME needs Profile 4, below |
-| HYBRID Type-S, or a US ANSI board | Not applicable. FKeyIME targets the HHKB Studio JIS |
+| HYBRID Type-S | Not applicable. FKeyIME targets the HHKB Studio JIS |
+| A US ANSI board (104/108-key page) | Optional: FKeyIME has a US ANSI setting (`KeyboardLayout=1`, FKeyIME spec section 8): US symbols in English and Korean, kana at JIS positions, ー and ろ on the `` ` `` key or on F14 / F15 from the keyboard. Without remapping, an optional escape hatch: ``Alt+` `` (or Menu) cycles the modes, ``Alt+Shift+` `` acts as F17 (FKeyIME spec section 8, off by default). Passes FKeyIME's test program; not yet tried on a keyboard ⏳ |
 
 ## What changes for you
 
@@ -34,7 +35,7 @@ Korean and Japanese IMEs, started by the `hhkb-ekj-trilingual` logon task.
 | F20 → Japanese | Microsoft Japanese IME, kana typing | FKeyIME JA: its own kana table (F6/F7/F8 to hiragana / katakana / half-width katakana, like macOS) and kanji conversion on Space through a bundled Mozc server, with a candidate window. Works in a development build |
 | F17 | Korean: 한자 (Microsoft's, words and syllables) | Korean: Hanja for **single syllables only**. Japanese: transient switch to the other input (romaji after F20, kana after F16). English: transient Caps Lock |
 | F16 | Not used | **New:** Japanese with romaji input. Needs a key set to F16 in the keymap tool; which key isn't decided yet (FKeyIME spec, open question 11) |
-| Symbols in Korean | **US ANSI** (the compromise) | **JIS**, matching the keycaps. FKeyIME types every character itself from its own table in all three modes (owner's decision after M0 showed Windows' layout substitution doesn't work). Not built yet ⏳ |
+| Symbols in Korean | **US ANSI** (the compromise) | **JIS**, matching the keycaps. FKeyIME types every character itself from its own table in all three modes (owner's decision after M0 showed Windows' layout substitution doesn't work). Built. On a US ANSI board, the `KeyboardLayout=1` setting gives US symbols instead ⏳ |
 | Mode across windows | Per window, so a window can drift back to Korean (`issues/windows-inconsistent-symbols.md`) | One global mode. Measured in M0: a switch takes about 5 ms, and every open app follows within about 25 ms (median), with no on-screen popup |
 | Elevated (admin) windows | Keys don't switch (UIPI) | Switch works, the TIP loads in-process ⏳ |
 | Password fields, UAC, sign-in screen | AutoHotkey still switches the language | F17–F20 do nothing there (TIPs aren't loaded) |
@@ -133,6 +134,21 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **US ANSI keyboards, and an escape hatch without F16-F20.** Two groups of settings in
+  `HKLM\Software\fkeyime`, all off by default, for US ANSI boards (FKeyIME spec, section 8).
+  JIS users: no change.
+  - `KeyboardLayout=1`: English and the symbols in Korean follow US keycaps. Kana keep their JIS
+    positions; the two kana ANSI has no key for (ー, ろ) go on the `` ` `` key (Shift for ろ) or on
+    F14 / F15 sent by the keyboard (`AnsiExtraKeys`). Set them in HKLM: Store apps such as
+    Notepad don't see a per-user HKCU value.
+  - For boards that can't send F16-F20, with no remap needed: ``Alt+` `` cycles English → Korean →
+    Japanese → English (`CycleKeys=1`; Menu too with `2`), Japanese by kana or romaji
+    (`CycleJapanese`), and ``Alt+Shift+` `` acts as F17 (`F17Keys=1`). The planned installer will
+    ask.
+
+  Both pass FKeyIME's test program in modern and classic text boxes, except that Menu still opens
+  the right-click menu in old dialogs. Not yet tried on a keyboard. New issue notes: a test that
+  froze mouse input, and why Right Win / Right Ctrl / Right Alt can't be used.
 - **Issue notes.** New `docs/issues/`: every problem met so far (Backspace sending messages,
   apps not loading FKeyIME, sign-in on the Microsoft IME, AutoHotkey taking the keys, server
   crashes…) with cause and solution. Check it before reporting a problem.

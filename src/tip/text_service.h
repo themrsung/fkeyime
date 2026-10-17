@@ -19,6 +19,7 @@
 
 #include "candidate_window.h"
 #include "hangul.h"
+#include "jis_layout.h"
 #include "kana.h"
 #include "mode_machine.h"
 #include "mozc_client.h"
@@ -84,6 +85,7 @@ private:
         kEdit,            // Backspace / Escape / Enter / Space / F6-F8 inside a composition
         kConvert,         // a key for Mozc while converting (Space, Enter, arrows, F6-F10...)
         kFKey,            // F16-F20
+        kCombo,           // Alt+` (cycle) or Alt+Shift+` (F17) under the Japanese layout
     };
     struct Plan {
         Action action = Action::kPass;
@@ -91,9 +93,16 @@ private:
     };
     Plan PlanKey(WPARAM vk, LPARAM lparam) const;
     JapaneseInput JapaneseInputNow() const;  // session-wide (state table), else this thread's
+    // The kana for a key in kana input, including the US ANSI routes for ー and ろ; 0 if none.
+    char16_t KanaFor(WPARAM vk, std::uint8_t scan, bool shift, bool extended) const;
+    // KeyboardLayout, AnsiExtraKeys, CycleKeys, CycleJapanese, F17Keys.
+    void LoadKeyboardOptions();
     bool Composing() const { return !hangul_.Empty() || !kana_.Empty() || converting_; }
 
-    void HandleFKey(ITfContext* context, WPARAM vk, const wchar_t* path);
+    void HandleFKey(ITfContext* context, FKey key, const wchar_t* path);
+    // The escape-hatch combos (options CycleKeys, F17Keys) as TSF preserved keys; `on` false
+    // drops them all.
+    void PreserveComboKeys(bool on);
     void HandleEdit(ITfContext* context, WPARAM vk);
 
     // Kanji conversion through the bundled Mozc server (docs/spec.md, section 9).
@@ -148,6 +157,12 @@ private:
     DWORD activate_flags_;
     bool defer_activation_ = false;
     bool preserve_keys_ = true;
+    jis::Layout layout_ = jis::Layout::kJis;  // option KeyboardLayout: 0 JIS, 1 US ANSI
+    DWORD ansi_extra_keys_ = 3;               // option AnsiExtraKeys: 1 the ` key, 2 F14/F15
+    DWORD cycle_keys_ = 0;  // option CycleKeys: 1 Alt+`, 2 Menu cycle the modes
+    JapaneseInput cycle_japanese_ = JapaneseInput::kKana;  // option CycleJapanese: 1 romaji
+    DWORD f17_keys_ = 0;                      // option F17Keys: 1 Alt+Shift+` acts as F17
+    unsigned combos_preserved_ = 0;           // bit i: kComboKeys[i] is preserved
     bool keys_preserved_ = false;
 };
 

@@ -61,6 +61,22 @@ HRESULT RunEditSession(ITfContext* context, TfClientId client_id,
     return FAILED(hr) ? hr : session_hr;
 }
 
+bool CaretInside(TfEditCookie ec, ITfContext* context, ITfRange* range) {
+    TF_SELECTION selection = {};
+    ULONG fetched = 0;
+    if (FAILED(context->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &selection, &fetched)) ||
+        !fetched || !selection.range) {
+        return false;
+    }
+    LONG start = 0, end = 0;
+    const bool inside =
+        SUCCEEDED(selection.range->CompareStart(ec, range, TF_ANCHOR_START, &start)) &&
+        SUCCEEDED(selection.range->CompareEnd(ec, range, TF_ANCHOR_END, &end)) && start >= 0 &&
+        end <= 0;
+    selection.range->Release();
+    return inside;
+}
+
 HRESULT CaretToEnd(TfEditCookie ec, ITfContext* context, ITfRange* range) {
     ComPtr<ITfRange> caret;
     HRESULT hr = range->Clone(&caret);

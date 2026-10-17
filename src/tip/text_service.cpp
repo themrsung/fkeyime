@@ -88,15 +88,60 @@ const OurKey* FindFKey(WPARAM vk) {
     return nullptr;
 }
 
+// An option from HKCU\Software\fkeyime, else HKLM\Software\fkeyime, else `fallback`. Packaged
+// (Store) apps don't see HKCU\Software\fkeyime, so settings belong in HKLM (measured: Notepad).
 DWORD ReadOption(const wchar_t* name, DWORD fallback) {
-    DWORD value = 0;
-    DWORD size = sizeof(value);
-    if (RegGetValueW(HKEY_LOCAL_MACHINE, L"Software\\fkeyime", name, RRF_RT_REG_DWORD, nullptr,
-                     &value, &size) == ERROR_SUCCESS) {
-        return value;
+    for (HKEY root : {HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE}) {
+        DWORD value = 0;
+        DWORD size = sizeof(value);
+        if (RegGetValueW(root, L"Software\\fkeyime", name, RRF_RT_REG_DWORD, nullptr, &value,
+                         &size) == ERROR_SUCCESS) {
+            return value;
+        }
     }
     return fallback;
 }
+
+const wchar_t* FKeyName(FKey key) {
+    switch (key) {
+        case FKey::kF16: return L"F16";
+        case FKey::kF17: return L"F17";
+        case FKey::kF18: return L"F18";
+        case FKey::kF19: return L"F19";
+        case FKey::kF20: return L"F20";
+    }
+    return L"?";
+}
+
+// The escape-hatch keys (options CycleKeys, F17Keys; spec section 8) as TSF preserved keys, so
+// that TSF takes them from the app like F16-F20. A preserved key names a virtual key: the ` key is
+// VK_OEM_3 under the US and Korean layouts. Under the Japanese layout, Alt+` is VK_KANJI, which
+// no preserved key matches; PlanKey catches it by scan code instead (measured, 2026-10-17).
+// Lone Right Win / Right Ctrl / Right Alt taps were tried first and never reached the TIP, by key
+// event sink or preserved key (measured).
+constexpr DWORD kComboGrave = 1;  // CycleKeys: Alt+`. F17Keys: Alt+Shift+`
+constexpr DWORD kComboMenu = 2;   // CycleKeys: Menu
+struct ComboKey {
+    bool f17;      // false: the cycle key
+    DWORD option;  // its bit in CycleKeys / F17Keys
+    TF_PRESERVEDKEY key;
+    const wchar_t* name;
+    GUID preserved;  // runtime only, like kOurKeys
+};
+constexpr UINT kAlt = TF_MOD_ALT;
+constexpr UINT kAltShift = TF_MOD_ALT | TF_MOD_SHIFT;
+constexpr ComboKey kComboKeys[] = {
+    {false, kComboGrave, {VK_OEM_3, kAlt}, L"Alt+`",
+     {0xd234d858, 0x4494, 0x4550, {0xb4, 0x43, 0x0d, 0xd1, 0x73, 0x00, 0xe7, 0xa2}}},
+    {false, kComboMenu, {VK_APPS, 0}, L"Menu",
+     {0x79939f07, 0xb046, 0x419c, {0xa0, 0xae, 0xbd, 0x1f, 0xfd, 0xb4, 0xc8, 0xd1}}},
+    {true, kComboGrave, {VK_OEM_3, kAltShift}, L"Alt+Shift+`",
+     {0x6827af4b, 0xadbf, 0x4d35, {0xa7, 0x3e, 0x0b, 0x10, 0x97, 0x1d, 0xc9, 0x2d}}},
+};
+
+// AnsiExtraKeys bits: the routes to ー and ろ on a US ANSI keyboard.
+constexpr DWORD kExtraSpareKey = 1;  // ` = ー, Shift+` = ろ
+constexpr DWORD kExtraFKeys = 2;     // F14 = ー, F15 = ろ, sent by the keyboard's firmware
 
 // The real Caps Lock, so the LED and other apps agree with FKeyIME's transient Caps Lock.
 void SetCapsLock(bool on) {
@@ -186,6 +231,7 @@ TextService::TextService()
                                                        TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE)),
       defer_activation_(ReadOption(L"Defer", 0) != 0),
       preserve_keys_(ReadOption(L"PreserveKeys", 1) != 0) {
+    LoadKeyboardOptions();
     DllAddRef();
 }
 
@@ -202,6 +248,7 @@ STDMETHODIMP TextService::QueryInterface(REFIID riid, void** object) {
         *object = static_cast<ITfActiveLanguageProfileNotifySink*>(this);
     } else if (riid == IID_ITfCompositionSink) {
         *object = static_cast<ITfCompositionSink*>(this);
+
     } else if (riid == IID_ITfDisplayAttributeProvider) {
         *object = static_cast<ITfDisplayAttributeProvider*>(this);
     } else {
@@ -246,9 +293,11 @@ STDMETHODIMP TextService::ActivateEx(ITfThreadMgr* thread_mgr, TfClientId client
         log::Write(L"state table unavailable (%lu)", GetLastError());
     }
     log::Write(L"ActivateEx tid=%lu flags=%#lx mode=%s options: ActivateFlags=%#lx Defer=%d "
-               L"PreserveKeys=%d",
+               L"PreserveKeys=%d KeyboardLayout=%d AnsiExtraKeys=%lu CycleKeys=%lu "
+               L"CycleJapanese=%d F17Keys=%lu",
                GetCurrentThreadId(), flags, ModeName(state_.mode), activate_flags_,
-               defer_activation_, preserve_keys_);
+               defer_activation_, preserve_keys_, static_cast<int>(layout_), ansi_extra_keys_,
+               cycle_keys_, static_cast<int>(cycle_japanese_), f17_keys_);
 
     ComPtr<ITfCategoryMgr> categories;
     if (SUCCEEDED(CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER,
@@ -264,6 +313,7 @@ STDMETHODIMP TextService::ActivateEx(ITfThreadMgr* thread_mgr, TfClientId client
         if (FAILED(hr)) log::Write(L"AdviseKeyEventSink failed %#lx", hr);
     }
     PreserveFKeys(preserve_keys_);
+    PreserveComboKeys(true);
     ComPtr<ITfSource> source;
     if (SUCCEEDED(thread_mgr_.As(&source))) {
         source->AdviseSink(IID_ITfActiveLanguageProfileNotifySink,
@@ -303,6 +353,7 @@ STDMETHODIMP TextService::Deactivate() {
         ComPtr<ITfKeystrokeMgr> keystrokes;
         if (SUCCEEDED(thread_mgr_.As(&keystrokes))) {
             PreserveFKeys(false);
+            PreserveComboKeys(false);
             keystrokes->UnadviseKeyEventSink(client_id_);
         }
         ComPtr<ITfSource> source;
@@ -318,7 +369,45 @@ STDMETHODIMP TextService::Deactivate() {
 
 STDMETHODIMP TextService::OnSetFocus(BOOL foreground) {
     log::Write(L"OnSetFocus %d", foreground);
+    if (foreground) LoadKeyboardOptions();  // a changed option applies without restarting apps
     return S_OK;
+}
+
+void TextService::LoadKeyboardOptions() {
+    const jis::Layout layout =
+        ReadOption(L"KeyboardLayout", 0) == 1 ? jis::Layout::kAnsi : jis::Layout::kJis;
+    const DWORD extra = ReadOption(L"AnsiExtraKeys", kExtraSpareKey | kExtraFKeys);
+    if (layout != layout_ || extra != ansi_extra_keys_) {
+        log::Write(L"options: KeyboardLayout=%d AnsiExtraKeys=%lu", static_cast<int>(layout),
+                   extra);
+    }
+    layout_ = layout;
+    ansi_extra_keys_ = extra;
+    const DWORD cycle = ReadOption(L"CycleKeys", 0);
+    const JapaneseInput japanese =
+        ReadOption(L"CycleJapanese", 0) == 1 ? JapaneseInput::kRomaji : JapaneseInput::kKana;
+    const DWORD f17 = ReadOption(L"F17Keys", 0);
+    if (cycle != cycle_keys_ || japanese != cycle_japanese_ || f17 != f17_keys_) {
+        log::Write(L"options: CycleKeys=%lu CycleJapanese=%d F17Keys=%lu", cycle,
+                   static_cast<int>(japanese), f17);
+    }
+    cycle_keys_ = cycle;
+    cycle_japanese_ = japanese;
+    f17_keys_ = f17;
+    PreserveComboKeys(true);  // follows a changed option (no-op before ActivateEx)
+}
+
+char16_t TextService::KanaFor(WPARAM vk, std::uint8_t scan, bool shift, bool extended) const {
+    if (layout_ == jis::Layout::kAnsi) {
+        if (ansi_extra_keys_ & kExtraFKeys) {
+            if (vk == VK_F14) return u'ー';
+            if (vk == VK_F15) return u'ろ';
+        }
+        if (!extended && (ansi_extra_keys_ & kExtraSpareKey)) {
+            if (char16_t kana = jis::AnsiSpareKana(scan, shift)) return kana;
+        }
+    }
+    return extended ? char16_t{} : jis::Kana(scan, shift);
 }
 
 JapaneseInput TextService::JapaneseInputNow() const {
@@ -342,6 +431,11 @@ TextService::Plan TextService::PlanKey(WPARAM vk, LPARAM lparam) const {
             return {Action::kPass};
     }
     if (FindFKey(vk)) return HasModifiers() ? pass : Plan{Action::kFKey};
+    // Alt+` / Alt+Shift+` that no preserved key caught: the Japanese layout's VK_KANJI.
+    if (((lparam >> 16) & 0xFF) == jis::scan::kGrave && Down(VK_MENU) && !Down(VK_CONTROL)) {
+        const bool f17 = Down(VK_SHIFT);
+        if ((f17 ? f17_keys_ : cycle_keys_) & kComboGrave) return {Action::kCombo};
+    }
     if (ShortcutModifiers()) return pass;
 
     const auto scan = static_cast<std::uint8_t>((lparam >> 16) & 0xFF);
@@ -351,19 +445,19 @@ TextService::Plan TextService::PlanKey(WPARAM vk, LPARAM lparam) const {
     if (converting_) {
         if (MozcKey(vk) != mozc::SpecialKey::kNone) return {Action::kConvert};
         // Typing on accepts the conversion and starts new kana.
-        if (char16_t kana = extended ? char16_t{} : jis::Kana(scan, shift)) return {Action::kKana, kana};
+        if (char16_t kana = KanaFor(vk, scan, shift, extended)) return {Action::kKana, kana};
         return pass;
     }
-    if (extended) return pass;  // arrows, Home/End, numpad Enter, ...
+    if (extended) return pass;  // arrows, Home/End, numpad Enter, ... (F14/F15 aren't)
 
     if (state_.mode == Mode::kKorean) {
         if (char16_t jamo = jis::TwoSetJamo(scan, shift)) return {Action::kJamo, jamo};
-        if (char16_t ch = jis::Ascii(scan, shift)) return {Action::kInsert, ch};
+        if (char16_t ch = jis::Ascii(layout_, scan, shift)) return {Action::kInsert, ch};
         if (vk == VK_BACK && !hangul_.Empty()) return {Action::kEdit};
         return pass;
     }
     if (state_.mode == Mode::kJapanese && JapaneseInputNow() == JapaneseInput::kKana) {
-        if (char16_t kana = jis::Kana(scan, shift)) return {Action::kKana, kana};
+        if (char16_t kana = KanaFor(vk, scan, shift, extended)) return {Action::kKana, kana};
         if (!kana_.Empty()) {
             switch (vk) {
                 case VK_BACK: case VK_ESCAPE: case VK_RETURN: case VK_SPACE:
@@ -373,9 +467,9 @@ TextService::Plan TextService::PlanKey(WPARAM vk, LPARAM lparam) const {
         }
         return pass;
     }
-    // English, and Japanese romaji until romaji input exists: the JIS table.
+    // English, and Japanese romaji until romaji input exists: the keycap table.
     const bool caps = (GetKeyState(VK_CAPITAL) & 1) != 0;
-    if (char16_t ch = jis::Ascii(scan, shift, caps)) return {Action::kInsert, ch};
+    if (char16_t ch = jis::Ascii(layout_, scan, shift, caps)) return {Action::kInsert, ch};
     return pass;
 }
 
@@ -425,20 +519,30 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* context, WPARAM wparam, LPARAM l
             HandleConversionKey(context, wparam);
             break;
         case Action::kFKey:
-            HandleFKey(context, wparam, L"OnKeyDown");
+            HandleFKey(context, FindFKey(wparam)->key, L"OnKeyDown");
+            break;
+        case Action::kCombo:
+            if (Down(VK_SHIFT)) {
+                HandleFKey(context, FKey::kF17, L"Alt+Shift+` (key event)");
+            } else {
+                HandleFKey(context, CycleKey(state_.mode, cycle_japanese_), L"Alt+` (key event)");
+            }
             break;
     }
     return S_OK;
 }
 
 STDMETHODIMP TextService::OnTestKeyUp(ITfContext*, WPARAM wparam, LPARAM, BOOL* eaten) {
-    *eaten = FindFKey(wparam) && !HasModifiers();
+    *eaten = (FindFKey(wparam) && !HasModifiers()) ||
+             (wparam == VK_APPS && (cycle_keys_ & kComboMenu));
     return S_OK;
 }
 
 STDMETHODIMP TextService::OnKeyUp(ITfContext*, WPARAM wparam, LPARAM, BOOL* eaten) {
-    // Eat F-key key-ups too, so the app never sees half a key press.
-    *eaten = FindFKey(wparam) && !HasModifiers();
+    // Eat F-key key-ups too, so the app never sees half a key press. Menu's key-up as well: it's
+    // what opens the context menu.
+    *eaten = (FindFKey(wparam) && !HasModifiers()) ||
+             (wparam == VK_APPS && (cycle_keys_ & kComboMenu));
     return S_OK;
 }
 
@@ -447,8 +551,14 @@ STDMETHODIMP TextService::OnPreservedKey(ITfContext* context, REFGUID guid, BOOL
     for (const OurKey& k : kOurKeys) {
         if (IsEqualGUID(guid, k.preserved)) {
             *eaten = TRUE;
-            HandleFKey(context, k.vk, L"OnPreservedKey");
+            HandleFKey(context, k.key, L"OnPreservedKey");
         }
+    }
+    for (const ComboKey& c : kComboKeys) {
+        if (!IsEqualGUID(guid, c.preserved)) continue;
+        *eaten = TRUE;
+        HandleFKey(context, c.f17 ? FKey::kF17 : CycleKey(state_.mode, cycle_japanese_), c.name);
+        break;
     }
     return S_OK;
 }
@@ -561,15 +671,14 @@ std::u16string TextService::EndConversion() {
     return conversion_text_;  // server unreachable: keep what was shown
 }
 
-void TextService::HandleFKey(ITfContext* context, WPARAM vk, const wchar_t* path) {
+void TextService::HandleFKey(ITfContext* context, FKey key, const wchar_t* path) {
     key_down_us_ = log::NowUs();
     // Any F-key ends the composition first: the text stays as typed.
     const bool committed = Composing() || composition_;
     if (context) CommitAll(context);
-    const FKey key = FindFKey(vk) ? FindFKey(vk)->key : FKey::kF17;
     const Result result = OnFKey(state_, key, false, policy_);
-    log::Write(L"key F%u via %s tid=%lu mode %s -> %s", static_cast<unsigned>(vk - VK_F1 + 1),
-               path, GetCurrentThreadId(), ModeName(state_.mode), ModeName(result.next.mode));
+    log::Write(L"key %s via %s tid=%lu mode %s -> %s", FKeyName(key), path, GetCurrentThreadId(),
+               ModeName(state_.mode), ModeName(result.next.mode));
     state_ = result.next;
     // Kana vs romaji is global, like the mode: other windows read it from the shared table.
     if (state::Table* table = state::Shared()) {
@@ -617,6 +726,25 @@ void TextService::PreserveFKeys(bool on) {
                                    k.vk - VK_F1 + 1, hr);
     }
     keys_preserved_ = on;
+}
+
+void TextService::PreserveComboKeys(bool on) {
+    if (!thread_mgr_) return;
+    ComPtr<ITfKeystrokeMgr> keystrokes;
+    if (FAILED(thread_mgr_.As(&keystrokes))) return;
+    for (unsigned i = 0; i < std::size(kComboKeys); ++i) {
+        const ComboKey& c = kComboKeys[i];
+        const bool want = on && ((c.f17 ? f17_keys_ : cycle_keys_) & c.option);
+        const bool have = (combos_preserved_ >> i) & 1;
+        if (want == have) continue;
+        const HRESULT hr = want ? keystrokes->PreserveKey(client_id_, c.preserved, &c.key, L"", 0)
+                                : keystrokes->UnpreserveKey(c.preserved, &c.key);
+        if (FAILED(hr)) {
+            log::Write(L"%s %s failed %#lx", want ? L"PreserveKey" : L"UnpreserveKey", c.name, hr);
+        } else {
+            combos_preserved_ ^= 1u << i;
+        }
+    }
 }
 
 void TextService::ApplyPendingSwitch() {
@@ -776,12 +904,20 @@ void TextService::UpdateText(ITfContext* context, const std::u16string& commit,
     if (FAILED(session_hr)) log::Write(L"UpdateText edit session failed %#lx", session_hr);
 }
 
-STDMETHODIMP TextService::OnCompositionTerminated(TfEditCookie, ITfComposition* composition) {
+STDMETHODIMP TextService::OnCompositionTerminated(TfEditCookie ec, ITfComposition* composition) {
     // The app ended the composition (a click elsewhere, focus change...): its text stays, and
     // FKeyIME starts fresh.
     log::Write(L"OnCompositionTerminated ours=%d mode=%s", composition == composition_.Get(),
                ModeName(state_.mode));
     if (composition_ && composition == composition_.Get()) {
+        // An app that ends the composition with the caret still inside it (RichEdit does when Alt
+        // goes down, measured) would get the next text in front of it: move the caret past it.
+        // A click elsewhere has already moved the caret out, and stays.
+        ComPtr<ITfRange> range;
+        if (composition_context_ && SUCCEEDED(composition->GetRange(&range)) &&
+            CaretInside(ec, composition_context_.Get(), range.Get())) {
+            CaretToEnd(ec, composition_context_.Get(), range.Get());
+        }
         composition_.Reset();
         composition_context_.Reset();
         hangul_.Flush();

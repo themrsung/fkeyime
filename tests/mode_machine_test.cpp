@@ -126,3 +126,19 @@ TEST_CASE("leaving Japanese forgets the transient input; F16 comes back in romaj
     CHECK(OnFKey(ko.next, FKey::kF16, false).next.japanese_input == JapaneseInput::kRomaji);
     CHECK(OnFKey(ko.next, FKey::kF20, false).next.japanese_input == JapaneseInput::kKana);
 }
+
+TEST_CASE("cycle key: English -> Korean -> Japanese -> English") {
+    CHECK(CycleKey(Mode::kEnglish, JapaneseInput::kKana) == FKey::kF18);
+    CHECK(CycleKey(Mode::kKorean, JapaneseInput::kKana) == FKey::kF20);
+    CHECK(CycleKey(Mode::kKorean, JapaneseInput::kRomaji) == FKey::kF16);
+    CHECK(CycleKey(Mode::kJapanese, JapaneseInput::kKana) == FKey::kF19);
+    CHECK(CycleKey(Mode::kJapanese, JapaneseInput::kRomaji) == FKey::kF19);
+
+    // Three presses come back to the start, with Japanese in the chosen input.
+    State s;
+    for (int i = 0; i < 2; ++i) s = OnFKey(s, CycleKey(s.mode, JapaneseInput::kRomaji), false).next;
+    CHECK(s.mode == Mode::kJapanese);
+    CHECK(s.japanese_input == JapaneseInput::kRomaji);
+    s = OnFKey(s, CycleKey(s.mode, JapaneseInput::kRomaji), false).next;
+    CHECK(s.mode == Mode::kEnglish);
+}

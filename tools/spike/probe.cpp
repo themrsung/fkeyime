@@ -74,7 +74,7 @@ void Pump(int ms) {
 }
 
 void SendKey(WORD vk, WORD scan, bool shift = false, bool by_scan = false,
-             bool extended = false) {
+             bool extended = false, bool alt = false) {
     std::vector<INPUT> in;
     auto add = [&](WORD v, WORD s, DWORD flags) {
         INPUT i = {INPUT_KEYBOARD};
@@ -84,10 +84,12 @@ void SendKey(WORD vk, WORD scan, bool shift = false, bool by_scan = false,
         if (extended && v == vk) i.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
         in.push_back(i);
     };
+    if (alt) add(VK_LMENU, 0x38, 0);
     if (shift) add(VK_LSHIFT, 0x2a, 0);
     add(vk, scan, 0);
     add(vk, scan, KEYEVENTF_KEYUP);
     if (shift) add(VK_LSHIFT, 0x2a, KEYEVENTF_KEYUP);
+    if (alt) add(VK_LMENU, 0x38, KEYEVENTF_KEYUP);
     SendInput(static_cast<UINT>(in.size()), in.data(), sizeof(INPUT));
 }
 
@@ -429,6 +431,7 @@ struct Tok {
     WORD vk;      // for special keys; 0 for scan-code keys; kCheckWindow for {WIN}
     WORD scan;
     bool shift;
+    bool alt = false;
 };
 
 std::vector<Tok> Keys(const wchar_t* seq) {
@@ -444,6 +447,8 @@ std::vector<Tok> Keys(const wchar_t* seq) {
         {L"RO", 0, 0x73},       {L"YEN", 0, 0x7d},
         {L"LEFT", VK_LEFT, 0x4b}, {L"RIGHT", VK_RIGHT, 0x4d}, {L"DOWN", VK_DOWN, 0x50},
         {L"WIN", kCheckWindow, 0},
+        // Escape-hatch keys (options CycleKeys, F17Keys). GRAVE is the key left of 1.
+        {L"APPS", VK_APPS, 0x5d}, {L"GRAVE", 0, 0x29},
     };
     // JIS scan codes of the characters on the unshifted keys.
     static const struct {
@@ -461,7 +466,11 @@ std::vector<Tok> Keys(const wchar_t* seq) {
     };
     std::vector<Tok> out;
     for (const wchar_t* c = seq; *c;) {
-        bool shift = false;
+        bool shift = false, alt = false;
+        if (c[0] == L'A' && c[1] == L'-') {  // A- is Alt; it comes before S-
+            alt = true;
+            c += 2;
+        }
         if (c[0] == L'S' && c[1] == L'-') {
             shift = true;
             c += 2;
@@ -470,13 +479,13 @@ std::vector<Tok> Keys(const wchar_t* seq) {
             const wchar_t* end = wcschr(c, L'}');
             const std::wstring name(c + 1, end);
             for (const Named& n : kNamed) {
-                if (name == n.name) out.push_back({n.vk, n.scan, shift});
+                if (name == n.name) out.push_back({n.vk, n.scan, shift, alt});
             }
             c = end + 1;
             continue;
         }
         for (const auto& k : kChars) {
-            if (k.ch == *c) out.push_back({0, k.scan, shift});
+            if (k.ch == *c) out.push_back({0, k.scan, shift, alt});
         }
         ++c;
     }
@@ -546,9 +555,30 @@ int Typing(const wchar_t* only) {  // only: run cases whose name starts with it
         {L"CONV typing on accepts", L"{F20}i-y{SP}3{ENTER}", L"\u65E5\u672C\u3042"},
         {L"CONV F-key accepts", L"{F20}i-y{SP}{F19}a", L"\u65E5\u672Ca"},
         {L"FAST CONV first candidate", L"{F20}i-y{SP}{ENTER}", L"\u65E5\u672C"},
+        // Escape hatch (spec section 8). Need CycleKeys=3 and F17Keys=1; run them with a name
+        // filter: --typing COMBO. Never inject Win keys here: they reach the shell.
+        {L"COMBO cycle with Alt+`", L"{F19}aA-{GRAVE}aA-{GRAVE}aA-{GRAVE}a", L"a\u3141\u3061a"},
+        {L"COMBO cycle with Menu", L"{F19}a{APPS}a{APPS}a{APPS}a", L"a\u3141\u3061a"},
+        {L"COMBO Alt+Shift+` is F17", L"{F19}A-S-{GRAVE}abA-S-{GRAVE}c", L"ABc"},
+        {L"COMBO ANSI ` is a long vowel in kana", L"{F20}{GRAVE}{ENTER}", L"ー"},
+        {L"COMBO cycle ends a composition", L"{F18}rkA-{GRAVE}3{ENTER}", L"\uAC00\u3042"},
     };
+    // A tap key that leaks to the app may open a menu, whose modal loop would stall this thread:
+    // close any popup menu (class #32768) and report it.
+    static bool menu_seen = false;
+    CreateThread(nullptr, 0, [](void*) -> DWORD {
+        for (;;) {
+            Sleep(300);
+            HWND menu = FindWindowW(L"#32768", nullptr);
+            if (menu && IsWindowVisible(menu)) {
+                menu_seen = true;
+                SendKey(VK_ESCAPE, 0x01);
+            }
+        }
+    }, nullptr, 0, nullptr);
     int failed = 0;
     for (const Case& c : cases) {
+        menu_seen = false;
         if (only && wcsncmp(c.name, only, wcslen(only))) continue;
         SetWindowTextW(g_edit, L"");
         Pump(100);
@@ -561,14 +591,15 @@ int Typing(const wchar_t* only) {  // only: run cases whose name starts with it
                 marks += w && IsWindowVisible(w) ? L"[W]" : L"[-]";
                 continue;
             }
-            const bool arrow = t.vk == VK_LEFT || t.vk == VK_RIGHT || t.vk == VK_DOWN;
-            SendKey(t.vk, t.scan, t.shift, t.vk == 0, arrow);
+            const bool extended = t.vk == VK_LEFT || t.vk == VK_RIGHT || t.vk == VK_DOWN ||
+                                  t.vk == VK_APPS;
+            SendKey(t.vk, t.scan, t.shift, t.vk == 0, extended, t.alt);
             if (!fast) Pump(40);
         }
         Pump(250);
         wchar_t text[256] = L"";
         GetWindowTextW(g_edit, text, 256);
-        const std::wstring got = text + marks;
+        const std::wstring got = text + marks + (menu_seen ? L"[menu]" : L"");
         const bool ok = got == c.expected;
         failed += !ok;
         std::wprintf(L"%s %s", ok ? L"PASS" : L"FAIL", c.name);
