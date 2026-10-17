@@ -7,3 +7,4 @@
 *.png binary
 *.ico binary
 *.hks text eol=lf
+*.patch text eol=lf

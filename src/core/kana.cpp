@@ -75,6 +75,12 @@ std::u16string KanaComposer::Flush() {
     return text;
 }
 
+void KanaComposer::Reset(std::u16string hiragana) {
+    raw_ = std::move(hiragana);
+    form_ = KanaForm::kHiragana;
+    forced_ = false;
+}
+
 std::u16string KanaComposer::Input(char16_t kana) {
     std::u16string out;
     if (forced_) out = Flush();  // typing after F6-F8 accepts the forced form

@@ -83,6 +83,17 @@ if ($Install) {
         }
         Copy-Item "$root\build\$arch\src\tip\$Config\fkeyime.dll" "$dest\$arch\"
     }
+    # The kanji conversion server (tools/build-mozc-server.ps1), next to the DLL folders where
+    # the TIP looks for it. A running one is stopped so it can be replaced; the TIP restarts it.
+    $server = "$root\build\mozc\fkeyime_mozc_server.exe"
+    if (Test-Path $server) {
+        Get-Process fkeyime_mozc_server -ErrorAction SilentlyContinue | Stop-Process -Force
+        Start-Sleep -Milliseconds 300
+        New-Item "$dest\mozc" -ItemType Directory -Force | Out-Null
+        Copy-Item $server "$dest\mozc\" -Force
+    } else {
+        Write-Warning "No conversion server ($server): Space keeps the kana as typed."
+    }
     & "$env:SystemRoot\System32\regsvr32.exe" /s "$dest\x64\fkeyime.dll"
     if ($LASTEXITCODE) { throw "regsvr32 x64 failed ($LASTEXITCODE)" }
     & "$env:SystemRoot\SysWOW64\regsvr32.exe" /s "$dest\x86\fkeyime.dll"
@@ -131,6 +142,7 @@ if ($Uninstall) {
         Remove-Item $key -Recurse -ErrorAction SilentlyContinue
     }
     Remove-Item $optionsKey -Recurse -ErrorAction SilentlyContinue
+    Get-Process fkeyime_mozc_server -ErrorAction SilentlyContinue | Stop-Process -Force
     # Processes that loaded the DLL keep it open until they exit; delete what we can.
     Remove-Item $dest -Recurse -Force -ErrorAction SilentlyContinue
     if (Test-Path $dest) { Write-Warning "$dest is still in use; delete it after signing out." }

@@ -30,6 +30,16 @@ inline constexpr GUID kLangBarItemMode = {
 inline constexpr GUID kDisplayAttributeInput = {
     0xcdb4adb8, 0x14fb, 0x46a2, {0x9a, 0xc9, 0xee, 0xe3, 0x21, 0x45, 0x1f, 0xd4}};
 
+// Display attribute of the segment being converted (thick underline).
+// {D829A536-9F59-4FEC-9CB4-BCBD13B8D4BF}
+inline constexpr GUID kDisplayAttributeTarget = {
+    0xd829a536, 0x9f59, 0x4fec, {0x9c, 0xb4, 0xbc, 0xbd, 0x13, 0xb8, 0xd4, 0xbf}};
+
+// Display attribute of the other converted segments (dotted underline).
+// {65F0360B-016C-4C50-85E4-7199ED9E71A1}
+inline constexpr GUID kDisplayAttributeConverted = {
+    0x65f0360b, 0x016c, 0x4c50, {0x85, 0xe4, 0x71, 0x99, 0xed, 0x9e, 0x71, 0xa1}};
+
 inline constexpr unsigned short kLangIdEnglish = 0x0409;
 inline constexpr unsigned short kLangIdKorean = 0x0412;
 inline constexpr unsigned short kLangIdJapanese = 0x0411;

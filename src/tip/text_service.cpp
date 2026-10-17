@@ -107,6 +107,33 @@ void SetCapsLock(bool on) {
     SendInput(2, in, sizeof(INPUT));
 }
 
+// The Mozc key for a key pressed while converting (Mozc's MS-IME keymap), or kNone.
+mozc::SpecialKey MozcKey(WPARAM vk) {
+    using K = mozc::SpecialKey;
+    switch (vk) {
+        case VK_SPACE: return K::kSpace;
+        case VK_RETURN: return K::kEnter;
+        case VK_ESCAPE: return K::kEscape;
+        case VK_BACK: return K::kBackspace;
+        case VK_DELETE: return K::kDelete;
+        case VK_LEFT: return K::kLeft;
+        case VK_RIGHT: return K::kRight;
+        case VK_UP: return K::kUp;
+        case VK_DOWN: return K::kDown;
+        case VK_HOME: return K::kHome;
+        case VK_END: return K::kEnd;
+        case VK_TAB: return K::kTab;
+        case VK_PRIOR: return K::kPageUp;
+        case VK_NEXT: return K::kPageDown;
+        case VK_F6: return K::kF6;
+        case VK_F7: return K::kF7;
+        case VK_F8: return K::kF8;
+        case VK_F9: return K::kF9;
+        case VK_F10: return K::kF10;
+    }
+    return K::kNone;
+}
+
 std::wstring_view Wide(const std::u16string& s) {
     return {reinterpret_cast<const wchar_t*>(s.data()), s.size()};
 }
@@ -227,6 +254,8 @@ STDMETHODIMP TextService::ActivateEx(ITfThreadMgr* thread_mgr, TfClientId client
     if (SUCCEEDED(CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER,
                                    IID_PPV_ARGS(&categories)))) {
         categories->RegisterGUID(kDisplayAttributeInput, &input_attribute_);
+        categories->RegisterGUID(kDisplayAttributeTarget, &target_attribute_);
+        categories->RegisterGUID(kDisplayAttributeConverted, &converted_attribute_);
     }
 
     ComPtr<ITfKeystrokeMgr> keystrokes;
@@ -262,6 +291,9 @@ STDMETHODIMP TextService::Deactivate() {
     if (composition_context_) CommitAll(composition_context_.Get());
     hangul_.Flush();
     kana_.Flush();
+    converting_ = false;
+    candidates_.Hide();
+    mozc_.reset();  // ends the Mozc session
     if (state::Table* table = state::Shared()) state::Release(table, GetCurrentThreadId());
     if (message_window_) {
         DestroyWindow(message_window_);
@@ -301,13 +333,28 @@ TextService::Plan TextService::PlanKey(WPARAM vk, LPARAM lparam) const {
     const bool composing = Composing();
     const Plan pass = {composing ? Action::kCommitThenPass : Action::kPass};
 
+    // A modifier on its own (Shift for ㅃ or ょ, ...) belongs to the next key: never commit for
+    // it. Committing here split compositions at every Shift (measured: とうき|ょうにいく).
+    switch (vk) {
+        case VK_SHIFT: case VK_LSHIFT: case VK_RSHIFT: case VK_CONTROL: case VK_LCONTROL:
+        case VK_RCONTROL: case VK_MENU: case VK_LMENU: case VK_RMENU: case VK_LWIN: case VK_RWIN:
+        case VK_CAPITAL:
+            return {Action::kPass};
+    }
     if (FindFKey(vk)) return HasModifiers() ? pass : Plan{Action::kFKey};
     if (ShortcutModifiers()) return pass;
 
     const auto scan = static_cast<std::uint8_t>((lparam >> 16) & 0xFF);
     const bool extended = (lparam & (1 << 24)) != 0;
-    if (extended) return pass;  // arrows, Home/End, numpad Enter, ...
     const bool shift = Down(VK_SHIFT);
+
+    if (converting_) {
+        if (MozcKey(vk) != mozc::SpecialKey::kNone) return {Action::kConvert};
+        // Typing on accepts the conversion and starts new kana.
+        if (char16_t kana = extended ? char16_t{} : jis::Kana(scan, shift)) return {Action::kKana, kana};
+        return pass;
+    }
+    if (extended) return pass;  // arrows, Home/End, numpad Enter, ...
 
     if (state_.mode == Mode::kKorean) {
         if (char16_t jamo = jis::TwoSetJamo(scan, shift)) return {Action::kJamo, jamo};
@@ -366,12 +413,16 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* context, WPARAM wparam, LPARAM l
             break;
         }
         case Action::kKana: {
-            const std::u16string commit = kana_.Input(plan.ch);
+            std::u16string commit = EndConversion();
+            commit += kana_.Input(plan.ch);
             UpdateText(context, commit, kana_.Preedit());
             break;
         }
         case Action::kEdit:
             HandleEdit(context, wparam);
+            break;
+        case Action::kConvert:
+            HandleConversionKey(context, wparam);
             break;
         case Action::kFKey:
             HandleFKey(context, wparam, L"OnKeyDown");
@@ -411,8 +462,10 @@ void TextService::HandleEdit(ITfContext* context, WPARAM vk) {
     switch (vk) {
         case VK_BACK: kana_.Backspace(); break;
         case VK_ESCAPE: kana_.Escape(); break;
+        case VK_SPACE:
+            if (StartConversion(context)) return;
+            [[fallthrough]];  // no conversion server: Space accepts the kana as they are
         case VK_RETURN:
-        case VK_SPACE:  // no kanji conversion yet: Space accepts the kana as they are
             UpdateText(context, kana_.Flush(), {});
             return;
         case VK_F6: kana_.Force(KanaForm::kHiragana); break;
@@ -420,6 +473,92 @@ void TextService::HandleEdit(ITfContext* context, WPARAM vk) {
         case VK_F8: kana_.Force(KanaForm::kHalfwidthKatakana); break;
     }
     UpdateText(context, {}, kana_.Preedit());
+}
+
+MozcClient* TextService::Mozc() {
+    if (!mozc_) mozc_ = std::make_unique<MozcClient>(DefaultMozcServerPath(DllInstance()));
+    return mozc_.get();
+}
+
+bool TextService::StartConversion(ITfContext* context) {
+    MozcClient* m = Mozc();
+    mozc::Output out;
+    // Start from an empty Mozc composition, then hand it the hiragana and convert.
+    if (!m->SendCommand(mozc::Command::kRevert, &out)) {
+        log::Write(L"conversion server unreachable");
+        return false;
+    }
+    mozc::KeyEvent text;
+    text.key_string = mozc::ToUtf8(kana_.Hiragana());
+    text.as_is = true;
+    mozc::KeyEvent space;
+    space.special = mozc::SpecialKey::kSpace;
+    const bool sent = m->SendKey(text, &out) && m->SendKey(space, &out);
+    if (!sent || !out.Converting()) {
+        log::Write(L"conversion didn't start: sent=%d segments=%zu candidates=%d", sent,
+                   out.segments.size(), out.has_candidates);
+        m->SendCommand(mozc::Command::kRevert, &out);
+        return false;
+    }
+    log::Write(L"conversion started: segments=%zu", out.segments.size());
+    kana_.Flush();  // Mozc holds the text now
+    converting_ = true;
+    ShowConversion(context, out, {});
+    return true;
+}
+
+void TextService::HandleConversionKey(ITfContext* context, WPARAM vk) {
+    mozc::KeyEvent key;
+    key.special = MozcKey(vk);
+    if (Down(VK_SHIFT)) key.modifiers.push_back(mozc::kModShift);
+    mozc::Output out;
+    if (!Mozc()->SendKey(key, &out)) {
+        // The server went away: keep what the conversion showed.
+        converting_ = false;
+        UpdateText(context, conversion_text_, {});
+        return;
+    }
+    log::Write(L"conversion key vk=%#x consumed=%d converting=%d segments=%zu result=%d", vk,
+               out.consumed, out.Converting(), out.segments.size(), out.has_result);
+    std::u16string commit = out.has_result ? mozc::FromUtf8(out.result) : std::u16string();
+    if (out.Converting()) {
+        ShowConversion(context, out, std::move(commit));
+    } else if (out.has_preedit && !out.segments.empty()) {
+        // Backspace / Escape went back to plain kana: FKeyIME's kana composer takes over.
+        converting_ = false;
+        kana_.Reset(mozc::FromUtf8(out.PreeditText()));
+        mozc::Output ignored;
+        Mozc()->SendCommand(mozc::Command::kRevert, &ignored);
+        UpdateText(context, commit, kana_.Preedit());
+    } else {
+        converting_ = false;  // committed (Enter) or emptied
+        UpdateText(context, commit, {});
+    }
+}
+
+void TextService::ShowConversion(ITfContext* context, const mozc::Output& out,
+                                 std::u16string commit) {
+    std::u16string preedit;
+    std::vector<Span> spans;
+    for (const mozc::Segment& s : out.segments) {
+        const std::u16string text = mozc::FromUtf8(s.value);
+        spans.push_back({preedit.size(), text.size(), s.annotation == mozc::Segment::kHighlight});
+        preedit += text;
+    }
+    conversion_text_ = preedit;
+    UpdateText(context, commit, preedit, std::move(spans),
+               out.ShowsCandidates() ? std::optional<mozc::Output>(out) : std::nullopt);
+}
+
+std::u16string TextService::EndConversion() {
+    if (!converting_) return {};
+    converting_ = false;
+    candidates_.Hide();
+    mozc::Output out;
+    if (Mozc()->SendCommand(mozc::Command::kSubmit, &out) && out.has_result) {
+        return mozc::FromUtf8(out.result);
+    }
+    return conversion_text_;  // server unreachable: keep what was shown
 }
 
 void TextService::HandleFKey(ITfContext* context, WPARAM vk, const wchar_t* path) {
@@ -509,15 +648,17 @@ void TextService::ActivateMode(Mode mode) {
 }
 
 void TextService::CommitAll(ITfContext* context) {
-    const std::u16string text = hangul_.Flush() + kana_.Flush();
+    const std::u16string text = EndConversion() + hangul_.Flush() + kana_.Flush();
     // Commit where the composition is, whichever pointer the caller got.
     ITfContext* target = composition_ && composition_context_ ? composition_context_.Get() : context;
     if (composition_ || !text.empty()) UpdateText(target, text, {});
 }
 
 void TextService::UpdateText(ITfContext* context, const std::u16string& commit,
-                             const std::u16string& preedit) {
+                             const std::u16string& preedit, std::vector<Span> spans,
+                             std::optional<mozc::Output> candidates) {
     if (!context) return;
+    if (!candidates) candidates_.Hide();
     // A composition left in another document (focus moved) ends there as it is.
     if (composition_ && composition_context_ && !SameObject(composition_context_.Get(), context)) {
         ComPtr<ITfComposition> old = composition_;
@@ -529,7 +670,8 @@ void TextService::UpdateText(ITfContext* context, const std::u16string& commit,
     }
     // Captures copies: when TSF can't run the session synchronously, it runs after this returns.
     ComPtr<ITfContext> context_ref = context;
-    auto edit = [this, context_ref, commit, preedit](TfEditCookie ec) -> HRESULT {
+    auto edit = [this, context_ref, commit, preedit, spans,
+                 candidates](TfEditCookie ec) -> HRESULT {
         ITfContext* context = context_ref.Get();
         ComPtr<ITfProperty> attribute;
         context->GetProperty(GUID_PROP_ATTRIBUTE, &attribute);
@@ -545,12 +687,48 @@ void TextService::UpdateText(ITfContext* context, const std::u16string& commit,
             selection.style.fInterimChar = TRUE;
             return context->SetSelection(cookie, 1, &selection);
         };
-        auto mark = [&](ITfRange* range) {
-            if (!attribute || input_attribute_ == TF_INVALID_GUIDATOM) return;
+        // The part of `range` from `start` for `length` UTF-16 units.
+        auto sub = [&](ITfRange* range, size_t start, size_t length) {
+            ComPtr<ITfRange> r;
+            LONG moved = 0;
+            if (FAILED(range->Clone(&r))) return r;
+            r->Collapse(ec, TF_ANCHOR_START);
+            r->ShiftEnd(ec, static_cast<LONG>(start + length), &moved, nullptr);
+            r->ShiftStart(ec, static_cast<LONG>(start), &moved, nullptr);
+            return r;
+        };
+        auto set = [&](ITfRange* range, TfGuidAtom atom) {
+            if (!attribute || atom == TF_INVALID_GUIDATOM) return;
             VARIANT v;
             v.vt = VT_I4;
-            v.lVal = static_cast<LONG>(input_attribute_);
+            v.lVal = static_cast<LONG>(atom);
             attribute->SetValue(ec, range, &v);
+        };
+        // Composing text gets the input attribute; a conversion marks its target segment and
+        // shows the candidate window under it.
+        auto mark = [&](ITfRange* range) {
+            if (spans.empty()) return set(range, input_attribute_);
+            set(range, converted_attribute_);
+            ComPtr<ITfRange> target;
+            for (const Span& s : spans) {
+                if (!s.target) continue;
+                target = sub(range, s.start, s.length);
+                if (target) set(target.Get(), target_attribute_);
+            }
+            if (!candidates) return;
+            RECT rect = {};
+            BOOL clipped = FALSE;
+            ComPtr<ITfContextView> view;
+            if (FAILED(context->GetActiveView(&view)) ||
+                FAILED(view->GetTextExt(ec, target ? target.Get() : range, &rect, &clipped)) ||
+                IsRectEmpty(&rect)) {
+                GUITHREADINFO gui = {sizeof(gui)};  // fall back to the caret
+                if (GetGUIThreadInfo(GetCurrentThreadId(), &gui) && gui.hwndCaret) {
+                    rect = gui.rcCaret;
+                    MapWindowPoints(gui.hwndCaret, nullptr, reinterpret_cast<POINT*>(&rect), 2);
+                }
+            }
+            candidates_.Show(*candidates, rect);
         };
 
         if (composition_) {
@@ -608,6 +786,12 @@ STDMETHODIMP TextService::OnCompositionTerminated(TfEditCookie, ITfComposition* 
         composition_context_.Reset();
         hangul_.Flush();
         kana_.Flush();
+        if (converting_) {
+            converting_ = false;
+            candidates_.Hide();
+            mozc::Output out;
+            if (mozc_) mozc_->SendCommand(mozc::Command::kRevert, &out);
+        }
     }
     return S_OK;
 }

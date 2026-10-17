@@ -61,13 +61,15 @@ void Pump(int ms) {
     }
 }
 
-void SendKey(WORD vk, WORD scan, bool shift = false, bool by_scan = false) {
+void SendKey(WORD vk, WORD scan, bool shift = false, bool by_scan = false,
+             bool extended = false) {
     std::vector<INPUT> in;
     auto add = [&](WORD v, WORD s, DWORD flags) {
         INPUT i = {INPUT_KEYBOARD};
         i.ki.wVk = by_scan ? 0 : v;
         i.ki.wScan = s;
         i.ki.dwFlags = flags | (by_scan ? KEYEVENTF_SCANCODE : 0);
+        if (extended && v == vk) i.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
         in.push_back(i);
     };
     if (shift) add(VK_LSHIFT, 0x2a, 0);
@@ -219,8 +221,10 @@ int Handoff(int rounds) {
 // --typing: key sequences in each mode, checked against the text that lands in the Edit control.
 // A sequence is a list of tokens: a letter/digit/symbol is that JIS key by scan code ("S-" prefix
 // = with Shift), and names in braces are special keys.
+constexpr WORD kCheckWindow = 0xFFFF;
+
 struct Tok {
-    WORD vk;      // for special keys; 0 for scan-code keys
+    WORD vk;      // for special keys; 0 for scan-code keys; kCheckWindow for {WIN}
     WORD scan;
     bool shift;
 };
@@ -236,6 +240,8 @@ std::vector<Tok> Keys(const wchar_t* seq) {
         {L"F19", VK_F19, 0x6a}, {L"F20", VK_F20, 0x6b},   {L"BS", VK_BACK, 0x0e},
         {L"ESC", VK_ESCAPE, 0x01}, {L"ENTER", VK_RETURN, 0x1c}, {L"SP", VK_SPACE, 0x39},
         {L"RO", 0, 0x73},       {L"YEN", 0, 0x7d},
+        {L"LEFT", VK_LEFT, 0x4b}, {L"RIGHT", VK_RIGHT, 0x4d}, {L"DOWN", VK_DOWN, 0x50},
+        {L"WIN", kCheckWindow, 0},
     };
     // JIS scan codes of the characters on the unshifted keys.
     static const struct {
@@ -300,6 +306,7 @@ int Typing(const wchar_t* only) {  // only: run cases whose name starts with it
         {L"EN transient Caps Lock", L"{F19}{F17}ab{F17}c{F17}d{F19}e", L"ABcDe"},
         {L"KO 2-Set + JIS symbol", L"{F18}dkssudgktpdyS-2{SP}rkrk{ENTER}", L"\uC548\uB155\uD558\uC138\uC694\" \uAC00\uAC00"},
         {L"KO backspace by jamo", L"{F18}rhk{BS}{BS}l{ENTER}", L"\uAE30"},
+        {L"KO Shift inside a syllable", L"{F18}dlS-t{ENTER}", L"\uC788"},
         {L"KO tense, no double final, compound vowel", L"{F18}S-qkfmsS-rdhk{ENTER}",
          L"\uBE60\uB978\u3132\uC640"},
         {L"KO commit on F-key", L"{F18}rk{F19}a", L"\uAC00a"},
@@ -313,7 +320,7 @@ int Typing(const wchar_t* only) {  // only: run cases whose name starts with it
         {L"JA typing after F7 commits it", L"{F20}3{F7}e{ENTER}", L"\u30A2\u3044"},
         {L"JA backspace", L"{F20}3e{BS}{ENTER}", L"\u3042"},
         {L"JA escape cancels", L"{F20}3e{ESC}{F19}a", L"a"},
-        {L"JA space accepts, small tsu", L"{F20}S-z{SP}", L"\u3063"},
+        {L"JA small tsu", L"{F20}S-z{ENTER}", L"\u3063"},
         {L"JA commit on F-key", L"{F20}3{F18}rk{ENTER}", L"\u3042\uAC00"},
         // The same with every key queued at once (the fastest possible typing).
         {L"FAST KO commit on F-key", L"{F18}rk{F19}a", L"\uAC00a"},
@@ -322,6 +329,19 @@ int Typing(const wchar_t* only) {  // only: run cases whose name starts with it
         {L"FAST KO words", L"{F18}dkssudgktpdy{ENTER}", L"\uC548\uB155\uD558\uC138\uC694"},
         {L"FAST EN symbols", L"{F19}S-2{RO}S-{RO}{YEN}a", L"\"\\_\u00A5a"},
         {L"FAST JA kana", L"{F20}3t@{F7}{ENTER}", L"\u30A2\u30AC"},
+        // Kanji conversion (bundled Mozc server). First candidates or cancel only: Mozc learns
+        // what's chosen, which would change the order on the next run.
+        {L"CONV first candidate", L"{F20}i-y{SP}{WIN}{ENTER}{WIN}", L"\u65E5\u672C[-][-]"},
+        {L"CONV sentence, Shift inside, two segments", L"{F20}0qdft@hpew@r{SP}{RIGHT}{ENTER}",
+         L"\u79C1\u306F\u5B66\u751F\u3067\u3059"},
+        {L"CONV Shift doesn't split the kana", L"{F20}3S-93{ENTER}", L"\u3042\u3087\u3042"},
+        {L"CONV candidate window, escape back to kana", L"{F20}i-y{SP}{SP}{WIN}{ESC}{WIN}{ENTER}",
+         L"\u306B\u307B\u3093[W][-]"},
+        {L"CONV backspace back to kana, then edit", L"{F20}i-y{SP}{BS}{BS}{ENTER}", L"\u306B\u307B"},
+        {L"CONV F7 katakana", L"{F20}wrs{SP}{F7}{ENTER}", L"\u30C6\u30B9\u30C8"},
+        {L"CONV typing on accepts", L"{F20}i-y{SP}3{ENTER}", L"\u65E5\u672C\u3042"},
+        {L"CONV F-key accepts", L"{F20}i-y{SP}{F19}a", L"\u65E5\u672Ca"},
+        {L"FAST CONV first candidate", L"{F20}i-y{SP}{ENTER}", L"\u65E5\u672C"},
     };
     int failed = 0;
     for (const Case& c : cases) {
@@ -329,18 +349,27 @@ int Typing(const wchar_t* only) {  // only: run cases whose name starts with it
         SetWindowTextW(g_edit, L"");
         Pump(100);
         const bool fast = !wcsncmp(c.name, L"FAST", 4);  // every key queued at once
+        std::wstring marks;  // {WIN} results, appended to the text
         for (const Tok& t : Keys(c.keys)) {
-            SendKey(t.vk, t.scan, t.shift, t.vk == 0);
+            if (t.vk == kCheckWindow) {  // record whether the candidate window shows now
+                if (!fast) Pump(150);
+                HWND w = FindWindowW(L"FKeyIMECandidateWindow", nullptr);
+                marks += w && IsWindowVisible(w) ? L"[W]" : L"[-]";
+                continue;
+            }
+            const bool arrow = t.vk == VK_LEFT || t.vk == VK_RIGHT || t.vk == VK_DOWN;
+            SendKey(t.vk, t.scan, t.shift, t.vk == 0, arrow);
             if (!fast) Pump(40);
         }
         Pump(250);
         wchar_t text[256] = L"";
         GetWindowTextW(g_edit, text, 256);
-        const bool ok = !wcscmp(text, c.expected);
+        const std::wstring got = text + marks;
+        const bool ok = got == c.expected;
         failed += !ok;
         std::wprintf(L"%s %s", ok ? L"PASS" : L"FAIL", c.name);
         if (!ok) {
-            std::wprintf(L"\n     got      [%s]\n     expected [%s]", Escaped(text).c_str(),
+            std::wprintf(L"\n     got      [%s]\n     expected [%s]", Escaped(got).c_str(),
                          Escaped(c.expected).c_str());
         }
         std::wprintf(L"\n");

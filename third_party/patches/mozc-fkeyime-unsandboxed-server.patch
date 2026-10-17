@@ -1,0 +1,16 @@
+diff --git a/src/base/run_level.cc b/src/base/run_level.cc
+index 02327b06..024f99f4 100644
+--- a/src/base/run_level.cc
++++ b/src/base/run_level.cc
+@@ -184,7 +184,10 @@ RunLevel::RunLevelType RunLevel::GetRunLevel(RunLevel::RequestType type) {
+     }
+ 
+     // Thread token must be created by sandbox.
+-    if (!thread_token) {
++    // FKeyIME: its TIP starts the server directly, without Mozc's sandbox, so the
++    // server has no thread token. Allowed for the server only (FKeyIME spec,
++    // section 9, "Security").
++    if (!thread_token && type != SERVER) {
+       return RunLevel::DENY;
+     }
+ 

@@ -37,6 +37,17 @@ tools/dev.ps1 -Arch x64 -Command 'cmake --build --preset x64-debug'   # anything
 Outputs: `build/<arch>/src/tip/<Config>/fkeyime.dll` and
 `build/<arch>/tests/<Config>/fkeyime_tests.exe`.
 
+## The conversion server
+
+```powershell
+tools/fetch-mozc.ps1                  # clone the pinned commit, apply third_party/patches/
+tools/build-mozc-server.ps1           # build //server:mozc_server_win, copy it to build\mozc\
+```
+
+`tools/spike.ps1 -Install` copies `build\mozc\fkeyime_mozc_server.exe` next to the TIP. With a
+warm Bazel cache (after the full build below) the server builds in about a minute; it doesn't
+need Qt.
+
 ## Mozc (milestone M0)
 
 ```powershell

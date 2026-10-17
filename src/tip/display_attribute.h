@@ -6,7 +6,7 @@
 
 namespace fkeyime {
 
-// A new enumerator over FKeyIME's display attributes (just kDisplayAttributeInput).
+// A new enumerator over FKeyIME's display attributes (input, target, converted; guids.h).
 IEnumTfDisplayAttributeInfo* NewDisplayAttributeEnum();
 
 // The info object for `guid`, or nullptr if it isn't FKeyIME's.

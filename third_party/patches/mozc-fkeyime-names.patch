@@ -1,0 +1,45 @@
+diff --git a/src/base/const.h b/src/base/const.h
+index 30a5013e..68275617 100644
+--- a/src/base/const.h
++++ b/src/base/const.h
+@@ -35,7 +35,7 @@ namespace mozc {
+ inline constexpr char kProductNameInEnglish[] = "Google Japanese Input";
+ #define kProductPrefix "GoogleJapaneseInput"
+ #else  // GOOGLE_JAPANESE_INPUT_BUILD
+-inline constexpr char kProductNameInEnglish[] = "Mozc";
++inline constexpr char kProductNameInEnglish[] = "FKeyIME Mozc";
+ #define kProductPrefix "Mozc"
+ #endif  // GOOGLE_JAPANESE_INPUT_BUILD
+ 
+@@ -98,11 +98,11 @@ inline constexpr wchar_t kMozcRegKey[] =
+ inline constexpr wchar_t kElevatedProcessDisabledKey[] =
+     L"Software\\Policies\\Google\\Google Japanese Input\\Preferences";
+ #else   // !GOOGLE_JAPANESE_INPUT_BUILD
+-inline constexpr char kCompanyNameInEnglish[] = "Mozc Project";
++inline constexpr char kCompanyNameInEnglish[] = "FKeyIME";
+ // Use Local prefix so that modules running under AppContainer can access.
+-inline constexpr char kEventPathPrefix[] = "Local\\Mozc.event.";
+-inline constexpr char kMutexPathPrefix[] = "Local\\Mozc.mutex.";
+-inline constexpr char kMozcServerName[] = "mozc_server.exe";
++inline constexpr char kEventPathPrefix[] = "Local\\FKeyIME-Mozc.event.";
++inline constexpr char kMutexPathPrefix[] = "Local\\FKeyIME-Mozc.mutex.";
++inline constexpr char kMozcServerName[] = "fkeyime_mozc_server.exe";
+ inline constexpr char kIMEFile[] = "mozc_ja.ime";
+ inline constexpr char kMozcTIP32[] = "mozc_tip32.dll";
+ inline constexpr char kMozcTIP64[] = "mozc_tip64.dll";
+@@ -121,12 +121,12 @@ inline constexpr wchar_t kCompositionWindowClassName[] =
+ inline constexpr wchar_t kIndicatorWindowClassName[] = L"MozcIndicatorWindow";
+ inline constexpr wchar_t kInfolistWindowClassName[] = L"MozcInfolistWindow";
+ inline constexpr wchar_t kIMEUIWndClassName[] = L"MozcUIWindow";
+-inline constexpr char kIPCPrefix[] = "\\\\.\\pipe\\mozc.";
++inline constexpr char kIPCPrefix[] = "\\\\.\\pipe\\fkeyime-mozc.";
+ inline constexpr wchar_t kCandidateUIDescription[] = L"MozcCandidateUI";
+ inline constexpr wchar_t kConfigurationDisplayname[] = L"Mozc Configuration";
+-inline constexpr wchar_t kMozcRegKey[] = L"Software\\Mozc Project\\Mozc";
++inline constexpr wchar_t kMozcRegKey[] = L"Software\\FKeyIME\\Mozc";
+ inline constexpr wchar_t kElevatedProcessDisabledKey[] =
+-    L"Software\\Policies\\Mozc Project\\Mozc\\Preferences";
++    L"Software\\Policies\\FKeyIME\\Mozc\\Preferences";
+ #endif  // GOOGLE_JAPANESE_INPUT_BUILD
+ #elif defined(__APPLE__)
+ inline constexpr char kMozcServerName[] = kProductPrefix "Converter.app";

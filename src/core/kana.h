@@ -34,7 +34,11 @@ public:
     // Ends the composition and returns its text in the current form.
     std::u16string Flush();
 
+    // Replaces the preedit with `hiragana`, unforced (after a kanji conversion was cancelled).
+    void Reset(std::u16string hiragana);
+
     std::u16string Preedit() const;
+    const std::u16string& Hiragana() const { return raw_; }  // ignoring a forced form
     bool Empty() const { return raw_.empty(); }
 
 private:

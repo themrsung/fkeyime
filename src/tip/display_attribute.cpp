@@ -8,9 +8,27 @@
 namespace fkeyime {
 namespace {
 
-class InputAttribute final : public ITfDisplayAttributeInfo {
+struct AttributeSpec {
+    const GUID* guid;
+    const wchar_t* description;
+    TF_DA_LINESTYLE line;
+    BOOL bold;
+    TF_DA_ATTR_INFO info;
+};
+
+// Composing (solid underline), the segment being converted (thick underline), and the other
+// converted segments (dotted underline). Colors are left to the app (TF_CT_NONE).
+constexpr AttributeSpec kAttributes[] = {
+    {&kDisplayAttributeInput, L"FKeyIME composing text", TF_LS_SOLID, FALSE, TF_ATTR_INPUT},
+    {&kDisplayAttributeTarget, L"FKeyIME segment being converted", TF_LS_SOLID, TRUE,
+     TF_ATTR_TARGET_CONVERTED},
+    {&kDisplayAttributeConverted, L"FKeyIME converted text", TF_LS_DOT, FALSE, TF_ATTR_CONVERTED},
+};
+constexpr ULONG kCount = ARRAYSIZE(kAttributes);
+
+class AttributeInfo final : public ITfDisplayAttributeInfo {
 public:
-    InputAttribute() { DllAddRef(); }
+    explicit AttributeInfo(const AttributeSpec& spec) : spec_(spec) { DllAddRef(); }
 
     STDMETHODIMP QueryInterface(REFIID riid, void** object) override {
         if (!object) return E_INVALIDARG;
@@ -31,12 +49,12 @@ public:
 
     STDMETHODIMP GetGUID(GUID* guid) override {
         if (!guid) return E_INVALIDARG;
-        *guid = kDisplayAttributeInput;
+        *guid = *spec_.guid;
         return S_OK;
     }
     STDMETHODIMP GetDescription(BSTR* description) override {
         if (!description) return E_INVALIDARG;
-        *description = SysAllocString(L"FKeyIME composing text");
+        *description = SysAllocString(spec_.description);
         return *description ? S_OK : E_OUTOFMEMORY;
     }
     STDMETHODIMP GetAttributeInfo(TF_DISPLAYATTRIBUTE* attribute) override {
@@ -44,17 +62,18 @@ public:
         *attribute = {};
         attribute->crText.type = TF_CT_NONE;
         attribute->crBk.type = TF_CT_NONE;
-        attribute->lsStyle = TF_LS_SOLID;
-        attribute->fBoldLine = FALSE;
+        attribute->lsStyle = spec_.line;
+        attribute->fBoldLine = spec_.bold;
         attribute->crLine.type = TF_CT_NONE;  // underline in the text color
-        attribute->bAttr = TF_ATTR_INPUT;
+        attribute->bAttr = spec_.info;
         return S_OK;
     }
     STDMETHODIMP SetAttributeInfo(const TF_DISPLAYATTRIBUTE*) override { return E_NOTIMPL; }
     STDMETHODIMP Reset() override { return S_OK; }
 
 private:
-    ~InputAttribute() { DllRelease(); }
+    ~AttributeInfo() { DllRelease(); }
+    const AttributeSpec& spec_;
     LONG refs_ = 1;
 };
 
@@ -88,7 +107,7 @@ public:
         if (!infos) return E_INVALIDARG;
         ULONG n = 0;
         while (n < count && position_ < kCount) {
-            infos[n] = new (std::nothrow) InputAttribute();
+            infos[n] = new (std::nothrow) AttributeInfo(kAttributes[position_]);
             if (!infos[n]) break;
             ++n;
             ++position_;
@@ -107,7 +126,6 @@ public:
 
 private:
     ~AttributeEnum() { DllRelease(); }
-    static constexpr ULONG kCount = 1;
     LONG refs_ = 1;
     ULONG position_;
 };
@@ -119,8 +137,10 @@ IEnumTfDisplayAttributeInfo* NewDisplayAttributeEnum() {
 }
 
 ITfDisplayAttributeInfo* NewDisplayAttributeInfo(REFGUID guid) {
-    if (!IsEqualGUID(guid, kDisplayAttributeInput)) return nullptr;
-    return new (std::nothrow) InputAttribute();
+    for (const AttributeSpec& spec : kAttributes) {
+        if (IsEqualGUID(guid, *spec.guid)) return new (std::nothrow) AttributeInfo(spec);
+    }
+    return nullptr;
 }
 
 }  // namespace fkeyime

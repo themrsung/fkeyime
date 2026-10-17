@@ -89,6 +89,7 @@ One TSF TIP (in-proc COM DLL, C++20) with **three language profiles** under one 
 - **Japanese engine: Mozc** (BSD-3-Clause), pinned in `third_party/mozc.commit`, **Option B**
   (owner, 2026-10-17): FKeyIME owns the TIP, the UI and the kana table, and only asks
   `mozc_server` for kana-kanji conversion over Mozc's named pipe (section 6.4). No fork of Mozc's TIP.
+  Built: section 9.
 - **Korean engine:** own 2-Set automaton, fed by scan code, so it doesn't depend on the layout.
   **Hanja: single syllable only** (owner, 2026-10-17), from Unicode Unihan (`kHangul`). No word
   dictionary in v1. Don't link LGPL libhangul.
@@ -129,7 +130,7 @@ One TSF TIP (in-proc COM DLL, C++20) with **three language profiles** under one 
 | M0 | Spikes: build Mozc; 3 profiles + JIS substitute; F-key delivery per app; decide A/B | S–M | **done** (section 6); decisions in section 5 |
 | M1 | Skeleton + English: profiles, F-key routing, shared state, own JIS key table, Caps Lock, indicator | S | **done except the mode indicator** (section 8) |
 | M2 | Korean: 2-Set automaton + tests, display attributes, single-syllable Hanja | M | **done except Hanja** (section 8) |
-| M3 | Japanese: own kana table, `mozc_server` client (Option B), conversion, romaji toggle | L | **kana input done** (hiragana, F6-F8); conversion and romaji input not started |
+| M3 | Japanese: own kana table, `mozc_server` client (Option B), conversion, romaji toggle | L | **kana input and kanji conversion done** (sections 8, 9); romaji input not started |
 | M4 | UI-less candidates, DPI, dark mode, Store apps, x86 (ARM64 stays unbuilt) | M | not started |
 | M5 | WiX MSI, install wizard (section 7), language-list setup, uninstall restores the stock IMEs, signing | S–M | not started |
 | M6 | Soak tests (hundreds of switches per key, per app), app matrix, docs | M | not started |
@@ -285,7 +286,8 @@ composers are pure C++ with unit tests (`src/core/hangul.*`, `src/core/kana.*`,
 | Korean | digits, symbols | JIS symbols; they end the syllable first |
 | Japanese (F20) | every key | JIS kana layout (かな入力), hiragana, composed in place. ゛ / ゜ combine with the kana before. Shift gives small kana, を, 「」、。・ |
 | Japanese, composing | F6 / F7 / F8 | Whole composition to hiragana / full-width katakana / half-width katakana, like macOS. The next kana typed accepts it; Escape undoes it |
-| Japanese, composing | Enter, Space | Accept the kana as they are (no kanji conversion yet) |
+| Japanese, composing | Space | Kanji conversion (section 9). Without the conversion server, accepts the kana as they are |
+| Japanese, composing | Enter | Accept the kana as they are |
 | Japanese, composing | Backspace, Escape | Remove the last kana / cancel the composition |
 | Any | Ctrl, Alt, Win + key | Passed to the app (shortcuts); a composition ends first |
 | Any | F16-F20 | A composition ends first and keeps its text |
@@ -318,5 +320,82 @@ every key queued at once), typed by scan code and read back from the control.
 AutoHotkey. Not tested yet: real hardware keys (the probe injects scan codes), browsers, Office,
 terminals, Store apps, games.
 
-Not done yet: Hanja (F17 in Korean does nothing), kanji conversion (Mozc), romaji input, the mode
-indicator, candidate UI.
+Not done yet: Hanja (F17 in Korean does nothing), romaji input, the mode indicator. Kanji
+conversion: section 9.
+
+## 9. Kanji conversion (M3, built 2026-10-17)
+
+Option B as decided: FKeyIME keeps its own kana composer and asks a bundled, renamed Mozc server
+for the conversion only.
+
+**Pieces**
+
+- `src/core/mozc_protocol.*`: the part of Mozc's session protocol FKeyIME uses, written and read
+  as protobuf wire format by hand (field numbers from `commands.proto` and
+  `candidate_window.proto` at the pinned commit). No protobuf library, so the x64 and x86 TIPs
+  stay free of it. Unit-tested (`tests/mozc_protocol_test.cpp`).
+- `src/tip/mozc_client.*`: one request and one response per pipe connection, as Mozc's own
+  client does. Every call times out after 2 s, so a stuck server can't freeze the app. The pipe
+  is `\\.\pipe\fkeyime-mozc.<key>.session`; the key is the SHA-1 of the user's SID, as Mozc
+  derives it, so it works without reading Mozc's key file (which AppContainer apps can't).
+  Starts the server when it isn't running.
+- The server: Mozc at the pinned commit with `third_party/patches/` applied, built by
+  `tools/build-mozc-server.ps1` (`//server:mozc_server_win`, about a minute with a warm Bazel
+  cache) and installed as `<install>\mozc\fkeyime_mozc_server.exe`. The x86 TIP talks to the
+  same x64 server process.
+  - `mozc-fkeyime-names.patch`: own product name, pipe prefix, mutex/event names, registry key
+    and profile folder (`%LOCALAPPDATA%Low\FKeyIME Mozc`), so it never collides with a real
+    Mozc install.
+  - `mozc-fkeyime-unsandboxed-server.patch`: see "Security" below.
+- `src/tip/candidate_window.*`: the candidate list, a topmost popup that never takes focus,
+  under the segment being converted (`ITfContextView::GetTextExt`, the caret as a fallback),
+  scaled for the window's DPI, with the page position (`2/36`).
+- Display attributes: the segment being converted gets a thick underline, the other converted
+  segments a dotted one.
+
+**Keys** (Mozc's MS-IME keymap while converting)
+
+| Key | While converting |
+| --- | --- |
+| Space / Down, Up | Next / previous candidate (the candidate window opens on the second Space) |
+| Left, Right | Move between segments |
+| Shift+Left, Shift+Right | Make the segment shorter / longer |
+| Enter | Accept the conversion |
+| Escape, Backspace | Back to the kana (FKeyIME's kana composer takes over again) |
+| F6-F10 | Hiragana / katakana / half-width / full-width and half-width roman |
+| PageUp, PageDown, Tab | Candidate pages; predict and convert |
+| A kana key | Accepts the conversion and starts new kana |
+| F16-F20, Ctrl/Alt/Win shortcuts, other keys | Accept the conversion first |
+
+Modifier keys on their own never end a composition. Before this was fixed, every Shift (ょ,
+ㅆ…) committed what was composed so far (measured: とうき|ょうにいく).
+
+**Security.** Mozc's own client starts the server inside Mozc's sandbox (a restricted token),
+and the server refuses to run without it. FKeyIME starts it directly, so the second patch lets
+the server run without the sandbox thread token. It then runs with the user's normal rights.
+Before a release, start it through Mozc's sandbox instead (`base/win32/win_sandbox.*`), or with
+an equivalent restricted token (open item for M5).
+
+**Lifetime.** The TIP that needs it first starts the server, detached from that app (and from
+its job, where allowed). AppContainer apps can't start processes: they convert only while the
+server is already running (started by any other app). Before release, start it at sign-in
+or through a broker (M5).
+
+**Learning.** Mozc learns from the candidates the user picks, and keeps that in its profile
+folder. Tests should only accept first candidates or cancel, or they'll change the order for
+the next run (measured: one manual test that picked いく made it the first candidate).
+
+### Measured (owner's PC, 2026-10-17)
+
+| Check | Result |
+| --- | --- |
+| `fkeyime_probe.exe --typing` / `--typing-rich`, 34 cases (the 24 typing cases plus 8 conversion cases and 2 Shift-inside cases) | 34/34 in the Win32 Edit and the TSF RichEdit, x64 (twice) and x86 |
+| Conversion cases | にほん → 日本 (first candidate, no window); わたしはがくせいです → 私は学生です across two segments with Right; the candidate window opens on the second Space and closes on Escape; Escape and Backspace go back to kana; F7 → テスト; a kana or an F-key accepts the conversion |
+| `--handoff 20` with the AutoHotkey script | 80/80 to FKeyIME, 40/40 to AutoHotkey |
+| Server start (stopped → first answer) | about 100 ms |
+| A conversion round trip (convert + cancel, including starting the test tool) | about 20 ms |
+| Server memory | about 23 MB |
+
+Not tested yet: real hardware keys, browsers, Office, terminals, Store apps, games (UI-less
+candidates, M4), the candidate window on a second monitor or at other DPIs, dark mode.
+

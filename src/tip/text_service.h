@@ -12,11 +12,17 @@
 #include <windows.h>
 #include <wrl/client.h>
 
+#include <memory>
+#include <optional>
 #include <string>
+#include <vector>
 
+#include "candidate_window.h"
 #include "hangul.h"
 #include "kana.h"
 #include "mode_machine.h"
+#include "mozc_client.h"
+#include "mozc_protocol.h"
 
 namespace fkeyime {
 
@@ -76,6 +82,7 @@ private:
         kJamo,            // Korean: feed `ch` to the Hangul composer
         kKana,            // Japanese: feed `ch` to the kana composer
         kEdit,            // Backspace / Escape / Enter / Space / F6-F8 inside a composition
+        kConvert,         // a key for Mozc while converting (Space, Enter, arrows, F6-F10...)
         kFKey,            // F16-F20
     };
     struct Plan {
@@ -84,17 +91,32 @@ private:
     };
     Plan PlanKey(WPARAM vk, LPARAM lparam) const;
     JapaneseInput JapaneseInputNow() const;  // session-wide (state table), else this thread's
-    bool Composing() const { return !hangul_.Empty() || !kana_.Empty(); }
+    bool Composing() const { return !hangul_.Empty() || !kana_.Empty() || converting_; }
 
     void HandleFKey(ITfContext* context, WPARAM vk, const wchar_t* path);
     void HandleEdit(ITfContext* context, WPARAM vk);
+
+    // Kanji conversion through the bundled Mozc server (docs/spec.md, section 9).
+    MozcClient* Mozc();
+    bool StartConversion(ITfContext* context);  // false: server unreachable, nothing to convert
+    void HandleConversionKey(ITfContext* context, WPARAM vk);
+    void ShowConversion(ITfContext* context, const mozc::Output& out, std::u16string commit);
+    std::u16string EndConversion();  // accepts the conversion, returns its text
     void ActivateMode(Mode mode);
     void PreserveFKeys(bool on);  // F16-F20 as TSF preserved keys (spike option PreserveKeys)
 
+    // A segment of a conversion, in UTF-16 units of the preedit.
+    struct Span {
+        size_t start = 0;
+        size_t length = 0;
+        bool target = false;  // the segment being converted
+    };
     // Replaces the composition (if any) with `commit`, which becomes final text, then starts or
-    // updates a composition showing `preedit`. Either may be empty.
+    // updates a composition showing `preedit`. Either may be empty. With `spans`, the preedit
+    // is a conversion; with `candidates`, the candidate window shows under its target segment.
     void UpdateText(ITfContext* context, const std::u16string& commit,
-                    const std::u16string& preedit);
+                    const std::u16string& preedit, std::vector<Span> spans = {},
+                    std::optional<mozc::Output> candidates = std::nullopt);
     // Ends the composition, keeping what's composed as final text.
     void CommitAll(ITfContext* context);
 
@@ -104,11 +126,17 @@ private:
     DWORD profile_sink_cookie_ = TF_INVALID_COOKIE;
     HWND message_window_ = nullptr;
     TfGuidAtom input_attribute_ = TF_INVALID_GUIDATOM;
+    TfGuidAtom target_attribute_ = TF_INVALID_GUIDATOM;
+    TfGuidAtom converted_attribute_ = TF_INVALID_GUIDATOM;
 
     State state_;
     Policy policy_;
     HangulComposer hangul_;
     KanaComposer kana_;
+    std::unique_ptr<MozcClient> mozc_;  // created on the first conversion
+    bool converting_ = false;
+    std::u16string conversion_text_;  // what the conversion shows, if the server goes away
+    CandidateWindow candidates_;
     Microsoft::WRL::ComPtr<ITfComposition> composition_;
     Microsoft::WRL::ComPtr<ITfContext> composition_context_;
 

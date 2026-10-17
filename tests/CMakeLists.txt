@@ -1,4 +1,4 @@
-add_executable(fkeyime_tests main.cpp mode_machine_test.cpp input_test.cpp)
+add_executable(fkeyime_tests main.cpp mode_machine_test.cpp input_test.cpp mozc_protocol_test.cpp)
 target_link_libraries(fkeyime_tests PRIVATE fkeyime_core)
 if(WIN32)
     target_sources(fkeyime_tests PRIVATE state_table_test.cpp)

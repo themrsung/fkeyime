@@ -7,8 +7,8 @@ Korean and Japanese IMEs, started by the `hhkb-ekj-trilingual` logon task.
 
 > [!IMPORTANT]
 > **Status at this commit: no installer yet.** A development build types English (JIS), Korean
-> 2-Set and Japanese kana (hiragana, F6-F8), but has no kanji conversion, Hanja or romaji input,
-> and installs only with a developer script. **Keep using v1.5.2 for daily typing.** The steps below
+> 2-Set and Japanese kana (F6-F8) with kanji conversion, but has no Hanja or romaji input and
+> installs only with a developer script. **Keep using v1.5.2 for daily typing.** The steps below
 > describe the planned migration and get updated with every commit.
 > Steps marked ⏳ depend on milestones that aren't done (`spec.md`, section 4).
 
@@ -27,7 +27,7 @@ Korean and Japanese IMEs, started by the `hhkb-ekj-trilingual` logon task.
 | --- | --- | --- |
 | F18 → Korean | Microsoft Korean IME, 한 mode | FKeyIME KO (own 2-Set engine) |
 | F19 → English | Japanese language with the IME off (taskbar shows JA / A) | FKeyIME EN (en-US, taskbar shows EN), JIS symbols from FKeyIME's own key table ⏳ |
-| F20 → Japanese | Microsoft Japanese IME, kana typing | FKeyIME JA: its own kana table (works: hiragana, F6/F7/F8 to hiragana / katakana / half-width katakana, like macOS). Kanji conversion through Mozc ⏳ |
+| F20 → Japanese | Microsoft Japanese IME, kana typing | FKeyIME JA: its own kana table (F6/F7/F8 to hiragana / katakana / half-width katakana, like macOS) and kanji conversion on Space through a bundled Mozc server, with a candidate window. Works in a development build |
 | F17 | Korean: 한자 (Microsoft's, words and syllables) | Korean: Hanja for **single syllables only**. Japanese: transient switch to the other input (romaji after F20, kana after F16). English: transient Caps Lock |
 | F16 | Not used | **New:** Japanese with romaji input. Needs a key set to F16 in the keymap tool; which key isn't decided yet (FKeyIME spec, open question 11) |
 | Symbols in Korean | **US ANSI** (the compromise) | **JIS**, matching the keycaps. FKeyIME types every character itself from its own table in all three modes (owner's decision after M0 showed Windows' layout substitution doesn't work). Not built yet ⏳ |
@@ -125,6 +125,10 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Kanji conversion (development build).** Space converts with a bundled Mozc server: segments,
+  candidate window, F6-F10, Escape back to kana. Mozc learns your choices in its own profile
+  folder; your Microsoft IME dictionary doesn't carry over. Fixed: Shift no longer splits what
+  you're typing. Still no installer, Hanja or romaji input.
 - **Typing works (development build).** English JIS, Korean 2-Set with JIS symbols, and Japanese
   kana with F6-F8 type correctly in classic and TSF text boxes (24/24 measured cases, x64 and
   x86). Still no installer, kanji conversion, Hanja or romaji input.

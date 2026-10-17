@@ -13,8 +13,9 @@ targeting, not `main`.
 
 > [!IMPORTANT]
 > **Status at this commit: not ready. Don't release v2.0.0 yet.** FKeyIME has no installable
-> build. Typing works in a development build (English JIS, Korean 2-Set, Japanese kana with
-> F6-F8; FKeyIME spec, section 8), but there's no kanji conversion, Hanja, romaji input or MSI. You may prepare the changes on a branch, but don't tag,
+> build. Typing and kanji conversion work in a development build (FKeyIME spec, sections 8 and
+> 9), but there's no Hanja, romaji input or MSI, and the conversion server still runs without
+> Mozc's sandbox (spec section 9, "Security"). You may prepare the changes on a branch, but don't tag,
 > merge to `main` or push without the owner's OK.
 
 v2.0.0 can ship once **all** of these are true. Check each one against the FKeyIME release,
@@ -29,6 +30,8 @@ don't assume:
 - [ ] `docs/migration-from-v1.5.2.md` in FKeyIME has no ⏳ steps left.
 - [ ] The installer wizard behaves as specified (FKeyIME spec, section 7): keeping the Microsoft
       IMEs is the default.
+- [ ] The conversion server runs sandboxed and starts without an app having to launch it
+      (FKeyIME spec, section 9, "Security" and "Lifetime").
 
 ## 1. Why a major version
 
@@ -56,7 +59,7 @@ Tell the user plainly: **choosing FKeyIME installs dependencies.** Path A has on
 
 | | Path A: AutoHotkey (legacy, v1.5.2) | Path B: FKeyIME |
 | --- | --- | --- |
-| **Dependencies** | AutoHotkey v2 + a script in the docs + a logon task. All user-level, readable | **FKeyIME MSI**: system-wide in-process COM DLLs (x64 + x86) loaded into every app that takes text input, the bundled **Mozc** conversion engine (`mozc_server`), binaries from a separate BSD-3-Clause repo. Needs admin to install. Updates come from FKeyIME releases |
+| **Dependencies** | AutoHotkey v2 + a script in the docs + a logon task. All user-level, readable | **FKeyIME MSI**: system-wide in-process COM DLLs (x64 + x86) loaded into every app that takes text input, the bundled **Mozc** conversion server (`fkeyime_mozc_server.exe`, about 23 MB of memory while running, its own profile folder `%LOCALAPPDATA%Low\FKeyIME Mozc` with what it learned), binaries from a separate BSD-3-Clause repo. Needs admin to install. Updates come from FKeyIME releases |
 | Korean | Microsoft Korean IME, **US ANSI symbols** (the compromise), full Hanja | FKeyIME's own 2-Set, **JIS symbols** from its own table (decided; check the release). Hanja for single syllables only. No 3-Set, no old Hangul |
 | English | Japanese with the IME off: JIS symbols, taskbar shows JA | Real en-US profile, taskbar shows EN, JIS symbols from FKeyIME's own table. Apps that read raw keys (games, some terminals) still see the Windows layout |
 | Japanese | Microsoft Japanese IME (cloud suggestions, MS user dictionary) | FKeyIME's own IME and kana table (F6/F7/F8 like macOS), with a bundled, renamed `mozc_server` for conversion only (Option B, decided): offline, different conversion, no MS dictionary |
@@ -136,6 +139,9 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Kanji conversion (development build).** Still not ready. The Dependencies row now names the
+  server process, its memory and its profile folder. New gate condition from the spec: the
+  server must run sandboxed before release (spec section 9, "Security").
 - **Typing works (development build).** Still not ready: no MSI, kanji conversion, Hanja or romaji.
   The Japanese row mentions F6/F7/F8. Path B's 04-fkeyime.md verification should reuse FKeyIME's
   `fkeyime_probe.exe --typing` cases (spec section 8) as its checklist.
