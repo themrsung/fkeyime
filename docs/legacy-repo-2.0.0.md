@@ -13,8 +13,8 @@ targeting, not `main`.
 
 > [!IMPORTANT]
 > **Status at this commit: not ready. Don't release v2.0.0 yet.** FKeyIME has no installable
-> build. M0 (spikes) is done and the owner has decided the design (FKeyIME spec, section 5).
-> Nothing types Korean or Japanese yet. You may prepare the changes on a branch, but don't tag,
+> build. Typing works in a development build (English JIS, Korean 2-Set, Japanese kana with
+> F6-F8; FKeyIME spec, section 8), but there's no kanji conversion, Hanja, romaji input or MSI. You may prepare the changes on a branch, but don't tag,
 > merge to `main` or push without the owner's OK.
 
 v2.0.0 can ship once **all** of these are true. Check each one against the FKeyIME release,
@@ -59,7 +59,7 @@ Tell the user plainly: **choosing FKeyIME installs dependencies.** Path A has on
 | **Dependencies** | AutoHotkey v2 + a script in the docs + a logon task. All user-level, readable | **FKeyIME MSI**: system-wide in-process COM DLLs (x64 + x86) loaded into every app that takes text input, the bundled **Mozc** conversion engine (`mozc_server`), binaries from a separate BSD-3-Clause repo. Needs admin to install. Updates come from FKeyIME releases |
 | Korean | Microsoft Korean IME, **US ANSI symbols** (the compromise), full Hanja | FKeyIME's own 2-Set, **JIS symbols** from its own table (decided; check the release). Hanja for single syllables only. No 3-Set, no old Hangul |
 | English | Japanese with the IME off: JIS symbols, taskbar shows JA | Real en-US profile, taskbar shows EN, JIS symbols from FKeyIME's own table. Apps that read raw keys (games, some terminals) still see the Windows layout |
-| Japanese | Microsoft Japanese IME (cloud suggestions, MS user dictionary) | FKeyIME's own IME and kana table, with a bundled, renamed `mozc_server` for conversion only (Option B, decided): offline, different conversion, no MS dictionary |
+| Japanese | Microsoft Japanese IME (cloud suggestions, MS user dictionary) | FKeyIME's own IME and kana table (F6/F7/F8 like macOS), with a bundled, renamed `mozc_server` for conversion only (Option B, decided): offline, different conversion, no MS dictionary |
 | F17 | 한자 in Korean only | Hanja / transient other Japanese input / transient Caps Lock |
 | F16 | Not used | Japanese with romaji input (needs a key set to F16; FKeyIME spec, open question 11) |
 | Both installed | — | Supported with the FKeyIME-aware AutoHotkey script: F-keys go to FKeyIME while it's the window's input method, otherwise to AutoHotkey. Win+Space picks |
@@ -136,6 +136,9 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Typing works (development build).** Still not ready: no MSI, kanji conversion, Hanja or romaji.
+  The Japanese row mentions F6/F7/F8. Path B's 04-fkeyime.md verification should reuse FKeyIME's
+  `fkeyime_probe.exe --typing` cases (spec section 8) as its checklist.
 - **API and F16.** FKeyIME now has a public API (`docs/api.md`), and an FKeyIME-aware version of
   the v1.5.2 AutoHotkey script (`examples/autohotkey/`) lets both be installed (measured). The
   03-autohotkey.md row now replaces the script with it. New rows: F16 (Japanese romaji) and

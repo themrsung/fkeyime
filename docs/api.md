@@ -49,6 +49,8 @@ Each thread with an FKeyIME profile active holds a slot in a session-wide shared
 (`Local\fkeyime.state.v1`): FKeyIME claims it on activation, updates the mode on every profile
 change, and releases it on deactivation. Slots of threads that died without releasing are ignored
 and reused. Layout (append-only ABI): [`src/tip/state_table.h`](../src/tip/state_table.h).
+The header's `session_flags` (bit 0: romaji) holds the global kana/romaji choice; it was the
+reserved field, so version 1 readers are unaffected.
 Unit-tested in `tests/state_table_test.cpp`.
 
 Known limit **[verify]**: an AppContainer (sandboxed Store) app may not be able to open the

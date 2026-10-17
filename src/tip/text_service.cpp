@@ -3,8 +3,11 @@
 #include <cwchar>
 #include <new>
 
+#include "display_attribute.h"
 #include "dll.h"
+#include "edit_session.h"
 #include "guids.h"
+#include "jis_layout.h"
 #include "log.h"
 #include "state_table.h"
 
@@ -28,7 +31,8 @@ constexpr OurKey kOurKeys[] = {
     {VK_F20, FKey::kF20, {0xff19845d, 0xc0a9, 0x4422, {0xbe, 0x90, 0xd5, 0x61, 0xda, 0x4b, 0x41, 0x1e}}},
 };
 
-constexpr UINT kMessageApply = WM_APP + 1;
+constexpr UINT kMessageApply = WM_APP + 1;  // also the timer id
+constexpr UINT kSwitchAfterCommitMs = 30;
 constexpr wchar_t kWindowClass[] = L"FKeyIMEMessageWindow";
 
 const wchar_t* ModeName(Mode mode) {
@@ -58,11 +62,30 @@ bool ModeFor(REFGUID profile, Mode* mode) {
     return true;
 }
 
-bool HasModifiers() {
-    for (int vk : {VK_SHIFT, VK_CONTROL, VK_MENU, VK_LWIN, VK_RWIN}) {
-        if (GetKeyState(vk) & 0x8000) return true;
+// COM identity: two interface pointers may refer to the same context.
+bool SameObject(IUnknown* a, IUnknown* b) {
+    ComPtr<IUnknown> x, y;
+    if (!a || !b || FAILED(a->QueryInterface(IID_PPV_ARGS(&x))) ||
+        FAILED(b->QueryInterface(IID_PPV_ARGS(&y)))) {
+        return false;
     }
-    return false;
+    return x == y;
+}
+
+bool Down(int vk) { return (GetKeyState(vk) & 0x8000) != 0; }
+
+// Shortcut modifiers: with these held, keys belong to the app (Ctrl+C, Alt+F4, Win+...).
+bool ShortcutModifiers() {
+    return Down(VK_CONTROL) || Down(VK_MENU) || Down(VK_LWIN) || Down(VK_RWIN);
+}
+
+bool HasModifiers() { return Down(VK_SHIFT) || ShortcutModifiers(); }
+
+const OurKey* FindFKey(WPARAM vk) {
+    for (const OurKey& k : kOurKeys) {
+        if (k.vk == vk) return &k;
+    }
+    return nullptr;
 }
 
 DWORD ReadOption(const wchar_t* name, DWORD fallback) {
@@ -73,6 +96,19 @@ DWORD ReadOption(const wchar_t* name, DWORD fallback) {
         return value;
     }
     return fallback;
+}
+
+// The real Caps Lock, so the LED and other apps agree with FKeyIME's transient Caps Lock.
+void SetCapsLock(bool on) {
+    if (((GetKeyState(VK_CAPITAL) & 1) != 0) == on) return;
+    INPUT in[2] = {{INPUT_KEYBOARD}, {INPUT_KEYBOARD}};
+    in[0].ki.wVk = in[1].ki.wVk = VK_CAPITAL;
+    in[1].ki.dwFlags = KEYEVENTF_KEYUP;
+    SendInput(2, in, sizeof(INPUT));
+}
+
+std::wstring_view Wide(const std::u16string& s) {
+    return {reinterpret_cast<const wchar_t*>(s.data()), s.size()};
 }
 
 // What the thread's keyboard layout produces for the keys whose symbols differ between JIS and
@@ -103,6 +139,10 @@ void LogLayoutProbe(const wchar_t* when) {
 }
 
 LRESULT CALLBACK MessageWindowProc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
+    if (message == WM_TIMER && wparam == kMessageApply) {
+        KillTimer(window, kMessageApply);
+        message = kMessageApply;
+    }
     if (message == kMessageApply) {
         if (auto* service = reinterpret_cast<TextService*>(GetWindowLongPtrW(window, GWLP_USERDATA))) {
             service->ApplyDeferred();
@@ -133,6 +173,10 @@ STDMETHODIMP TextService::QueryInterface(REFIID riid, void** object) {
         *object = static_cast<ITfKeyEventSink*>(this);
     } else if (riid == IID_ITfActiveLanguageProfileNotifySink) {
         *object = static_cast<ITfActiveLanguageProfileNotifySink*>(this);
+    } else if (riid == IID_ITfCompositionSink) {
+        *object = static_cast<ITfCompositionSink*>(this);
+    } else if (riid == IID_ITfDisplayAttributeProvider) {
+        *object = static_cast<ITfDisplayAttributeProvider*>(this);
     } else {
         *object = nullptr;
         return E_NOINTERFACE;
@@ -179,18 +223,18 @@ STDMETHODIMP TextService::ActivateEx(ITfThreadMgr* thread_mgr, TfClientId client
                GetCurrentThreadId(), flags, ModeName(state_.mode), activate_flags_,
                defer_activation_, preserve_keys_);
 
+    ComPtr<ITfCategoryMgr> categories;
+    if (SUCCEEDED(CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER,
+                                   IID_PPV_ARGS(&categories)))) {
+        categories->RegisterGUID(kDisplayAttributeInput, &input_attribute_);
+    }
+
     ComPtr<ITfKeystrokeMgr> keystrokes;
     if (SUCCEEDED(thread_mgr_.As(&keystrokes))) {
         HRESULT hr = keystrokes->AdviseKeyEventSink(client_id_, this, TRUE);
         if (FAILED(hr)) log::Write(L"AdviseKeyEventSink failed %#lx", hr);
-        if (preserve_keys_) {
-            for (const OurKey& k : kOurKeys) {
-                const TF_PRESERVEDKEY key = {k.vk, 0};
-                hr = keystrokes->PreserveKey(client_id_, k.preserved, &key, L"", 0);
-                if (FAILED(hr)) log::Write(L"PreserveKey F%u failed %#lx", k.vk - VK_F1 + 1, hr);
-            }
-        }
     }
+    PreserveFKeys(preserve_keys_);
     ComPtr<ITfSource> source;
     if (SUCCEEDED(thread_mgr_.As(&source))) {
         source->AdviseSink(IID_ITfActiveLanguageProfileNotifySink,
@@ -214,6 +258,10 @@ STDMETHODIMP TextService::ActivateEx(ITfThreadMgr* thread_mgr, TfClientId client
 
 STDMETHODIMP TextService::Deactivate() {
     log::Write(L"Deactivate tid=%lu", GetCurrentThreadId());
+    // Switching to another input method keeps what's being composed.
+    if (composition_context_) CommitAll(composition_context_.Get());
+    hangul_.Flush();
+    kana_.Flush();
     if (state::Table* table = state::Shared()) state::Release(table, GetCurrentThreadId());
     if (message_window_) {
         DestroyWindow(message_window_);
@@ -222,12 +270,7 @@ STDMETHODIMP TextService::Deactivate() {
     if (thread_mgr_) {
         ComPtr<ITfKeystrokeMgr> keystrokes;
         if (SUCCEEDED(thread_mgr_.As(&keystrokes))) {
-            if (preserve_keys_) {
-                for (const OurKey& k : kOurKeys) {
-                    const TF_PRESERVEDKEY key = {k.vk, 0};
-                    keystrokes->UnpreserveKey(k.preserved, &key);
-                }
-            }
+            PreserveFKeys(false);
             keystrokes->UnadviseKeyEventSink(client_id_);
         }
         ComPtr<ITfSource> source;
@@ -241,62 +284,172 @@ STDMETHODIMP TextService::Deactivate() {
     return S_OK;
 }
 
-bool TextService::IsOurFKey(WPARAM vk) const {
-    return vk >= VK_F16 && vk <= VK_F20 && !HasModifiers();
-}
-
 STDMETHODIMP TextService::OnSetFocus(BOOL foreground) {
     log::Write(L"OnSetFocus %d", foreground);
     return S_OK;
 }
 
-STDMETHODIMP TextService::OnTestKeyDown(ITfContext*, WPARAM wparam, LPARAM, BOOL* eaten) {
-    *eaten = IsOurFKey(wparam);
+JapaneseInput TextService::JapaneseInputNow() const {
+    if (const state::Table* table = state::Shared()) {
+        return (state::SessionFlags(table) & state::kFlagRomaji) ? JapaneseInput::kRomaji
+                                                                 : JapaneseInput::kKana;
+    }
+    return state_.japanese_input;
+}
+
+TextService::Plan TextService::PlanKey(WPARAM vk, LPARAM lparam) const {
+    const bool composing = Composing();
+    const Plan pass = {composing ? Action::kCommitThenPass : Action::kPass};
+
+    if (FindFKey(vk)) return HasModifiers() ? pass : Plan{Action::kFKey};
+    if (ShortcutModifiers()) return pass;
+
+    const auto scan = static_cast<std::uint8_t>((lparam >> 16) & 0xFF);
+    const bool extended = (lparam & (1 << 24)) != 0;
+    if (extended) return pass;  // arrows, Home/End, numpad Enter, ...
+    const bool shift = Down(VK_SHIFT);
+
+    if (state_.mode == Mode::kKorean) {
+        if (char16_t jamo = jis::TwoSetJamo(scan, shift)) return {Action::kJamo, jamo};
+        if (char16_t ch = jis::Ascii(scan, shift)) return {Action::kInsert, ch};
+        if (vk == VK_BACK && !hangul_.Empty()) return {Action::kEdit};
+        return pass;
+    }
+    if (state_.mode == Mode::kJapanese && JapaneseInputNow() == JapaneseInput::kKana) {
+        if (char16_t kana = jis::Kana(scan, shift)) return {Action::kKana, kana};
+        if (!kana_.Empty()) {
+            switch (vk) {
+                case VK_BACK: case VK_ESCAPE: case VK_RETURN: case VK_SPACE:
+                case VK_F6: case VK_F7: case VK_F8:
+                    return {Action::kEdit};
+            }
+        }
+        return pass;
+    }
+    // English, and Japanese romaji until romaji input exists: the JIS table.
+    const bool caps = (GetKeyState(VK_CAPITAL) & 1) != 0;
+    if (char16_t ch = jis::Ascii(scan, shift, caps)) return {Action::kInsert, ch};
+    return pass;
+}
+
+STDMETHODIMP TextService::OnTestKeyDown(ITfContext*, WPARAM wparam, LPARAM lparam, BOOL* eaten) {
+    // "Commit then pass" keys are reported as ours so OnKeyDown runs and can end the
+    // composition; OnKeyDown then hands them on.
+    *eaten = PlanKey(wparam, lparam).action != Action::kPass;
+    return S_OK;
+}
+
+STDMETHODIMP TextService::OnKeyDown(ITfContext* context, WPARAM wparam, LPARAM lparam,
+                                    BOOL* eaten) {
+    // A key typed before the timer of a delayed switch fires: switch now, before composing in
+    // the new mode (WM_TIMER waits while keys are queued).
+    ApplyPendingSwitch();
+    const Plan plan = PlanKey(wparam, lparam);
+    *eaten = TRUE;
+    switch (plan.action) {
+        case Action::kPass:
+            *eaten = FALSE;
+            break;
+        case Action::kCommitThenPass:
+            CommitAll(context);
+            *eaten = FALSE;
+            break;
+        case Action::kInsert: {
+            std::u16string text = hangul_.Flush() + kana_.Flush();
+            text += plan.ch;
+            UpdateText(context, text, {});
+            break;
+        }
+        case Action::kJamo: {
+            const std::u16string commit = hangul_.Feed(plan.ch);
+            UpdateText(context, commit, hangul_.Preedit());
+            break;
+        }
+        case Action::kKana: {
+            const std::u16string commit = kana_.Input(plan.ch);
+            UpdateText(context, commit, kana_.Preedit());
+            break;
+        }
+        case Action::kEdit:
+            HandleEdit(context, wparam);
+            break;
+        case Action::kFKey:
+            HandleFKey(context, wparam, L"OnKeyDown");
+            break;
+    }
     return S_OK;
 }
 
 STDMETHODIMP TextService::OnTestKeyUp(ITfContext*, WPARAM wparam, LPARAM, BOOL* eaten) {
-    *eaten = IsOurFKey(wparam);
-    return S_OK;
-}
-
-STDMETHODIMP TextService::OnKeyDown(ITfContext*, WPARAM wparam, LPARAM, BOOL* eaten) {
-    *eaten = IsOurFKey(wparam);
-    if (*eaten) HandleFKey(wparam, L"OnKeyDown");
+    *eaten = FindFKey(wparam) && !HasModifiers();
     return S_OK;
 }
 
 STDMETHODIMP TextService::OnKeyUp(ITfContext*, WPARAM wparam, LPARAM, BOOL* eaten) {
-    // Eat the key-up too, so the app never sees half a key press.
-    *eaten = IsOurFKey(wparam);
+    // Eat F-key key-ups too, so the app never sees half a key press.
+    *eaten = FindFKey(wparam) && !HasModifiers();
     return S_OK;
 }
 
-STDMETHODIMP TextService::OnPreservedKey(ITfContext*, REFGUID guid, BOOL* eaten) {
+STDMETHODIMP TextService::OnPreservedKey(ITfContext* context, REFGUID guid, BOOL* eaten) {
     *eaten = FALSE;
     for (const OurKey& k : kOurKeys) {
         if (IsEqualGUID(guid, k.preserved)) {
             *eaten = TRUE;
-            HandleFKey(k.vk, L"OnPreservedKey");
+            HandleFKey(context, k.vk, L"OnPreservedKey");
         }
     }
     return S_OK;
 }
 
-void TextService::HandleFKey(WPARAM vk, const wchar_t* path) {
-    key_down_us_ = log::NowUs();
-    FKey key = FKey::kF17;
-    for (const OurKey& k : kOurKeys) {
-        if (k.vk == vk) key = k.key;
+void TextService::HandleEdit(ITfContext* context, WPARAM vk) {
+    if (state_.mode == Mode::kKorean) {
+        hangul_.Backspace();  // the only edit key in Korean
+        UpdateText(context, {}, hangul_.Preedit());
+        return;
     }
+    switch (vk) {
+        case VK_BACK: kana_.Backspace(); break;
+        case VK_ESCAPE: kana_.Escape(); break;
+        case VK_RETURN:
+        case VK_SPACE:  // no kanji conversion yet: Space accepts the kana as they are
+            UpdateText(context, kana_.Flush(), {});
+            return;
+        case VK_F6: kana_.Force(KanaForm::kHiragana); break;
+        case VK_F7: kana_.Force(KanaForm::kKatakana); break;
+        case VK_F8: kana_.Force(KanaForm::kHalfwidthKatakana); break;
+    }
+    UpdateText(context, {}, kana_.Preedit());
+}
+
+void TextService::HandleFKey(ITfContext* context, WPARAM vk, const wchar_t* path) {
+    key_down_us_ = log::NowUs();
+    // Any F-key ends the composition first: the text stays as typed.
+    const bool committed = Composing() || composition_;
+    if (context) CommitAll(context);
+    const FKey key = FindFKey(vk) ? FindFKey(vk)->key : FKey::kF17;
     const Result result = OnFKey(state_, key, false, policy_);
     log::Write(L"key F%u via %s tid=%lu mode %s -> %s", static_cast<unsigned>(vk - VK_F1 + 1),
                path, GetCurrentThreadId(), ModeName(state_.mode), ModeName(result.next.mode));
     state_ = result.next;
+    // Kana vs romaji is global, like the mode: other windows read it from the shared table.
+    if (state::Table* table = state::Shared()) {
+        state::SetSessionFlags(table, state_.japanese_input == JapaneseInput::kRomaji
+                                          ? state::kFlagRomaji : 0);
+    }
     for (const Effect& effect : result.effects) {
         switch (effect.kind) {
             case Effect::Kind::kActivateProfile:
-                if (defer_activation_ && message_window_) {
+                // After a commit, switch the profile only once the app has processed the commit:
+                // WM_TIMER comes after everything already queued. Switching at once (or after a
+                // posted message) made the IMM compatibility layer deliver the Korean syllable a
+                // second time (measured in a Win32 Edit: 가 F19 gave 가가). Keys typed meanwhile
+                // already follow the new mode, which state_ holds.
+                if (committed && message_window_) {
+                    pending_mode_ = effect.mode;
+                    switch_pending_ = true;
+                    SetTimer(message_window_, kMessageApply, kSwitchAfterCommitMs, nullptr);
+                } else if (defer_activation_ && message_window_) {
                     pending_mode_ = effect.mode;
                     PostMessageW(message_window_, kMessageApply, 0, 0);
                 } else {
@@ -304,14 +457,39 @@ void TextService::HandleFKey(WPARAM vk, const wchar_t* path) {
                 }
                 break;
             case Effect::Kind::kSetCapsLock:
-            case Effect::Kind::kSetJapaneseInput:
-            case Effect::Kind::kConvertHanja:
-                break;  // M1-M3
+                SetCapsLock(effect.caps_lock);
+                break;
+            case Effect::Kind::kSetJapaneseInput:  // state_ already holds it
+            case Effect::Kind::kConvertHanja:      // not implemented yet
+                break;
         }
     }
 }
 
-void TextService::ApplyDeferred() { ActivateMode(pending_mode_); }
+void TextService::PreserveFKeys(bool on) {
+    if (on == keys_preserved_ || !thread_mgr_) return;
+    ComPtr<ITfKeystrokeMgr> keystrokes;
+    if (FAILED(thread_mgr_.As(&keystrokes))) return;
+    for (const OurKey& k : kOurKeys) {
+        const TF_PRESERVEDKEY key = {k.vk, 0};
+        const HRESULT hr = on ? keystrokes->PreserveKey(client_id_, k.preserved, &key, L"", 0)
+                              : keystrokes->UnpreserveKey(k.preserved, &key);
+        if (FAILED(hr)) log::Write(L"%s F%u failed %#lx", on ? L"PreserveKey" : L"UnpreserveKey",
+                                   k.vk - VK_F1 + 1, hr);
+    }
+    keys_preserved_ = on;
+}
+
+void TextService::ApplyPendingSwitch() {
+    if (!switch_pending_) return;
+    if (message_window_) KillTimer(message_window_, kMessageApply);
+    ApplyDeferred();
+}
+
+void TextService::ApplyDeferred() {
+    switch_pending_ = false;
+    ActivateMode(pending_mode_);
+}
 
 void TextService::ActivateMode(Mode mode) {
     LANGID langid;
@@ -328,6 +506,122 @@ void TextService::ActivateMode(Mode mode) {
     const long long end = log::NowUs();
     log::Write(L"ActivateProfile %s hr=%#lx call=%lldus since-key=%lldus", ModeName(mode), hr,
                end - start, end - key_down_us_);
+}
+
+void TextService::CommitAll(ITfContext* context) {
+    const std::u16string text = hangul_.Flush() + kana_.Flush();
+    // Commit where the composition is, whichever pointer the caller got.
+    ITfContext* target = composition_ && composition_context_ ? composition_context_.Get() : context;
+    if (composition_ || !text.empty()) UpdateText(target, text, {});
+}
+
+void TextService::UpdateText(ITfContext* context, const std::u16string& commit,
+                             const std::u16string& preedit) {
+    if (!context) return;
+    // A composition left in another document (focus moved) ends there as it is.
+    if (composition_ && composition_context_ && !SameObject(composition_context_.Get(), context)) {
+        ComPtr<ITfComposition> old = composition_;
+        RunEditSession(composition_context_.Get(), client_id_, [old](TfEditCookie ec) {
+            return old->EndComposition(ec);
+        });
+        composition_.Reset();
+        composition_context_.Reset();
+    }
+    // Captures copies: when TSF can't run the session synchronously, it runs after this returns.
+    ComPtr<ITfContext> context_ref = context;
+    auto edit = [this, context_ref, commit, preedit](TfEditCookie ec) -> HRESULT {
+        ITfContext* context = context_ref.Get();
+        ComPtr<ITfProperty> attribute;
+        context->GetProperty(GUID_PROP_ATTRIBUTE, &attribute);
+        // Korean selects the composing syllable as an interim character (block cursor), like the
+        // Microsoft Korean IME; with a plain caret, apps running through the IMM compatibility
+        // layer end every Korean composition at once (measured in a Win32 Edit control). Other
+        // modes put the caret after the composition.
+        auto ShowComposing = [&](TfEditCookie cookie, ITfRange* range) -> HRESULT {
+            if (state_.mode != Mode::kKorean) return CaretToEnd(cookie, context, range);
+            TF_SELECTION selection = {};
+            selection.range = range;
+            selection.style.ase = TF_AE_NONE;
+            selection.style.fInterimChar = TRUE;
+            return context->SetSelection(cookie, 1, &selection);
+        };
+        auto mark = [&](ITfRange* range) {
+            if (!attribute || input_attribute_ == TF_INVALID_GUIDATOM) return;
+            VARIANT v;
+            v.vt = VT_I4;
+            v.lVal = static_cast<LONG>(input_attribute_);
+            attribute->SetValue(ec, range, &v);
+        };
+
+        if (composition_) {
+            ComPtr<ITfRange> range;
+            composition_->GetRange(&range);
+            if (commit.empty() && !preedit.empty()) {  // still composing: just update it
+                range->SetText(ec, 0, Wide(preedit).data(), static_cast<LONG>(preedit.size()));
+                mark(range.Get());
+                return ShowComposing(ec, range.Get());
+            }
+            // The composition ends; its text becomes `commit` (possibly nothing).
+            if (attribute) attribute->Clear(ec, range.Get());
+            range->SetText(ec, 0, Wide(commit).data(), static_cast<LONG>(commit.size()));
+            CaretToEnd(ec, context, range.Get());
+            composition_->EndComposition(ec);
+            composition_.Reset();
+            composition_context_.Reset();
+        } else if (!commit.empty()) {
+            InsertAtSelection(ec, context, Wide(commit));
+        }
+        if (preedit.empty()) return S_OK;
+
+        ComPtr<ITfInsertAtSelection> insert;
+        ComPtr<ITfContextComposition> compositions;
+        ComPtr<ITfRange> at;
+        if (FAILED(context->QueryInterface(IID_PPV_ARGS(&insert))) ||
+            FAILED(context->QueryInterface(IID_PPV_ARGS(&compositions))) ||
+            FAILED(insert->InsertTextAtSelection(ec, TF_IAS_QUERYONLY, nullptr, 0, &at))) {
+            return E_FAIL;
+        }
+        HRESULT hr = compositions->StartComposition(ec, at.Get(), this, &composition_);
+        if (FAILED(hr) || !composition_) {
+            // The app refused a composition: type the preedit as final text instead.
+            composition_.Reset();
+            return InsertAtSelection(ec, context, Wide(preedit));
+        }
+        composition_context_ = context;
+        ComPtr<ITfRange> range;
+        composition_->GetRange(&range);
+        range->SetText(ec, 0, Wide(preedit).data(), static_cast<LONG>(preedit.size()));
+        mark(range.Get());
+        return ShowComposing(ec, range.Get());
+    };
+    const HRESULT session_hr = RunEditSession(context, client_id_, edit);
+    if (FAILED(session_hr)) log::Write(L"UpdateText edit session failed %#lx", session_hr);
+}
+
+STDMETHODIMP TextService::OnCompositionTerminated(TfEditCookie, ITfComposition* composition) {
+    // The app ended the composition (a click elsewhere, focus change...): its text stays, and
+    // FKeyIME starts fresh.
+    log::Write(L"OnCompositionTerminated ours=%d mode=%s", composition == composition_.Get(),
+               ModeName(state_.mode));
+    if (composition_ && composition == composition_.Get()) {
+        composition_.Reset();
+        composition_context_.Reset();
+        hangul_.Flush();
+        kana_.Flush();
+    }
+    return S_OK;
+}
+
+STDMETHODIMP TextService::EnumDisplayAttributeInfo(IEnumTfDisplayAttributeInfo** infos) {
+    if (!infos) return E_INVALIDARG;
+    *infos = NewDisplayAttributeEnum();
+    return *infos ? S_OK : E_OUTOFMEMORY;
+}
+
+STDMETHODIMP TextService::GetDisplayAttributeInfo(REFGUID guid, ITfDisplayAttributeInfo** info) {
+    if (!info) return E_INVALIDARG;
+    *info = NewDisplayAttributeInfo(guid);
+    return *info ? S_OK : E_INVALIDARG;
 }
 
 STDMETHODIMP TextService::OnActivated(REFCLSID clsid, REFGUID profile, BOOL activated) {

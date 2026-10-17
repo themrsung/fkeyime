@@ -16,8 +16,9 @@ every mode. It replaces the AutoHotkey switching of
 [`docs/migration-from-v1.5.2.md`](docs/migration-from-v1.5.2.md)).
 
 > [!WARNING]
-> **Early development: nothing installable yet.** The toolchain, the mode logic (unit-tested) and
-> an empty TIP DLL exist. Milestones are in [`docs/spec.md`](docs/spec.md).
+> **Early development: no installer yet.** English (JIS), Korean 2-Set and Japanese kana input
+> (hiragana, F6-F8) work through a development install (`tools/spike.ps1`). No kanji conversion,
+> Hanja or romaji input yet. Status: [`docs/spec.md`](docs/spec.md), sections 4 and 8.
 
 ## Build
 

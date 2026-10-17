@@ -28,6 +28,7 @@ constexpr ProfileInfo kProfiles[] = {
 // What the TIP claims to support. Immersive support lets Store apps load it.
 const GUID* const kCategories[] = {
     &GUID_TFCAT_TIP_KEYBOARD,
+    &GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
     &GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT,
     &GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT,
     &GUID_TFCAT_TIPCAP_UIELEMENTENABLED,

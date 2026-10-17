@@ -4,7 +4,9 @@ target_include_directories(fkeyime_state PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(fkeyime_state PUBLIC advapi32)
 
 add_library(fkeyime_tip SHARED
+    display_attribute.cpp
     dllmain.cpp
+    edit_session.cpp
     fkeyime_api.cpp
     log.cpp
     registration.cpp

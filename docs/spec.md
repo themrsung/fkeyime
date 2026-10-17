@@ -127,9 +127,9 @@ One TSF TIP (in-proc COM DLL, C++20) with **three language profiles** under one 
 | --- | --- | --- | --- |
 | — | Repo, toolchain, mode logic + tests, DLL skeleton | S | **done** |
 | M0 | Spikes: build Mozc; 3 profiles + JIS substitute; F-key delivery per app; decide A/B | S–M | **done** (section 6); decisions in section 5 |
-| M1 | Skeleton + English: profiles, F-key routing, shared state, own JIS key table, Caps Lock, indicator | S | not started |
-| M2 | Korean: 2-Set automaton + tests, display attributes, single-syllable Hanja | M | not started |
-| M3 | Japanese: own kana table, `mozc_server` client (Option B), conversion, romaji toggle | L | not started |
+| M1 | Skeleton + English: profiles, F-key routing, shared state, own JIS key table, Caps Lock, indicator | S | **done except the mode indicator** (section 8) |
+| M2 | Korean: 2-Set automaton + tests, display attributes, single-syllable Hanja | M | **done except Hanja** (section 8) |
+| M3 | Japanese: own kana table, `mozc_server` client (Option B), conversion, romaji toggle | L | **kana input done** (hiragana, F6-F8); conversion and romaji input not started |
 | M4 | UI-less candidates, DPI, dark mode, Store apps, x86 (ARM64 stays unbuilt) | M | not started |
 | M5 | WiX MSI, install wizard (section 7), language-list setup, uninstall restores the stock IMEs, signing | S–M | not started |
 | M6 | Soak tests (hundreds of switches per key, per app), app matrix, docs | M | not started |
@@ -271,3 +271,52 @@ Detection *(inferred, to check in M5)*: laptop = `Win32_SystemEnclosure.ChassisT
 device whose instance path isn't Bluetooth (`BTHENUM` / `BTHLE`), excluding PFU `04FE` devices
 (open question 10). The implementation (WiX custom dialog + custom action, or a Burn
 bootstrapper with its own UI) is decided in M5.
+
+## 8. Typing (M1-M3, built 2026-10-17)
+
+What works now. Keys come from FKeyIME's own tables by scan code (`src/core/jis_layout.*`); the
+composers are pure C++ with unit tests (`src/core/hangul.*`, `src/core/kana.*`,
+`tests/input_test.cpp`).
+
+| Mode | Keys | Behavior |
+| --- | --- | --- |
+| English (F19) | letters, digits, symbols | Inserted directly, JIS keycaps macOS style: Shift+2 `"`, ろ `\` / `_`, ¥ `¥` / `\|`, `@` `[` `:` … Caps Lock (F17) uppercases letters, Shift reverses it |
+| Korean (F18) | letter keys | 2-Set syllables, composed in place (underlined, block cursor). Backspace removes one jamo (ㅘ → ㅗ, ㄳ → ㄱ). A final moves to the next syllable before a vowel (각+ㅏ → 가가) |
+| Korean | digits, symbols | JIS symbols; they end the syllable first |
+| Japanese (F20) | every key | JIS kana layout (かな入力), hiragana, composed in place. ゛ / ゜ combine with the kana before. Shift gives small kana, を, 「」、。・ |
+| Japanese, composing | F6 / F7 / F8 | Whole composition to hiragana / full-width katakana / half-width katakana, like macOS. The next kana typed accepts it; Escape undoes it |
+| Japanese, composing | Enter, Space | Accept the kana as they are (no kanji conversion yet) |
+| Japanese, composing | Backspace, Escape | Remove the last kana / cancel the composition |
+| Any | Ctrl, Alt, Win + key | Passed to the app (shortcuts); a composition ends first |
+| Any | F16-F20 | A composition ends first and keeps its text |
+| Japanese romaji (F16) | — | **Not implemented yet**: types the English JIS table |
+
+Two workarounds for apps that reach TSF through the IMM compatibility layer (classic Win32 Edit
+controls and similar), both measured with `fkeyime_probe.exe --typing`:
+
+- **Korean interim character.** The composing syllable is selected as an interim character
+  (block cursor), as the Microsoft Korean IME does. With a plain caret, the compatibility layer
+  ended every Korean composition at once (each jamo came out on its own: ㅇㅏㄴ…).
+- **Profile switch after a commit.** When an F-key commits a composition, the profile switch is
+  delayed until the app has processed the commit (a 30 ms timer, or the next key, whichever comes
+  first). Switching at once made the compatibility layer deliver a Korean syllable twice
+  (가 F19 → 가가). Keys typed in between already follow the new mode.
+
+### Measured (owner's PC, 2026-10-17)
+
+`fkeyime_probe.exe --typing` / `--typing-rich`: 24 key sequences (English symbols and Caps Lock;
+Korean words, Backspace, tense consonants, compound vowels, symbols, commits on Enter and F-keys;
+Japanese kana, dakuten, F6-F8, Backspace, Escape, Space; commits across modes; 6 of them with
+every key queued at once), typed by scan code and read back from the control.
+
+| Process | Win32 Edit (IMM compatibility) | RichEdit 5 with TSF |
+| --- | --- | --- |
+| x64 | 24/24, twice | 24/24, twice |
+| x86 | 24/24 | 24/24 |
+
+`--handoff 20` with the FKeyIME-aware AutoHotkey script still gives 80/80 to FKeyIME and 40/40 to
+AutoHotkey. Not tested yet: real hardware keys (the probe injects scan codes), browsers, Office,
+terminals, Store apps, games.
+
+Not done yet: Hanja (F17 in Korean does nothing), kanji conversion (Mozc), romaji input, the mode
+indicator, candidate UI.

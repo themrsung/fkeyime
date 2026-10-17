@@ -4,6 +4,9 @@
 // WM_INPUTLANGCHANGE and which HKL it reports, then types the JIS/US probe keys by scan code and
 // reads back what the Edit control received. Run it with the TIP registered (tools/spike.ps1).
 //   fkeyime_probe.exe [rounds]      (default 20 rounds of F18, F19, F20, F19)
+//   fkeyime_probe.exe --typing [EN|KO|JA]    (--typing-rich: in a TSF-aware RichEdit)
+//       Types key sequences by scan code in each mode and checks the text that lands: JIS
+//       English, Korean 2-Set, Japanese kana with F6-F8 (docs/spec.md, M1-M3).
 //   fkeyime_probe.exe --handoff [rounds]
 //       FKeyIME API + AutoHotkey hand-off (docs/api.md): F18-F20 must reach FKeyIME while it's
 //       active, the API must report its mode, and with a Microsoft IME active the keys must go to
@@ -11,6 +14,7 @@
 #include <windows.h>
 #include <commctrl.h>
 #include <msctf.h>
+#include <richedit.h>
 
 #include <algorithm>
 #include <cstdio>
@@ -212,6 +216,143 @@ int Handoff(int rounds) {
     return ok_profile == total && ok_api == total && ahk_ok == ahk_total ? 0 : 2;
 }
 
+// --typing: key sequences in each mode, checked against the text that lands in the Edit control.
+// A sequence is a list of tokens: a letter/digit/symbol is that JIS key by scan code ("S-" prefix
+// = with Shift), and names in braces are special keys.
+struct Tok {
+    WORD vk;      // for special keys; 0 for scan-code keys
+    WORD scan;
+    bool shift;
+};
+
+std::vector<Tok> Keys(const wchar_t* seq) {
+    struct Named {
+        const wchar_t* name;
+        WORD vk, scan;
+    };
+    static const Named kNamed[] = {
+        {L"F6", VK_F6, 0x40},   {L"F7", VK_F7, 0x41},     {L"F8", VK_F8, 0x42},
+        {L"F16", VK_F16, 0x67}, {L"F17", VK_F17, 0x68},   {L"F18", VK_F18, 0x69},
+        {L"F19", VK_F19, 0x6a}, {L"F20", VK_F20, 0x6b},   {L"BS", VK_BACK, 0x0e},
+        {L"ESC", VK_ESCAPE, 0x01}, {L"ENTER", VK_RETURN, 0x1c}, {L"SP", VK_SPACE, 0x39},
+        {L"RO", 0, 0x73},       {L"YEN", 0, 0x7d},
+    };
+    // JIS scan codes of the characters on the unshifted keys.
+    static const struct {
+        wchar_t ch;
+        WORD scan;
+    } kChars[] = {
+        {L'1', 0x02}, {L'2', 0x03}, {L'3', 0x04}, {L'4', 0x05}, {L'5', 0x06}, {L'6', 0x07},
+        {L'7', 0x08}, {L'8', 0x09}, {L'9', 0x0a}, {L'0', 0x0b}, {L'-', 0x0c}, {L'^', 0x0d},
+        {L'q', 0x10}, {L'w', 0x11}, {L'e', 0x12}, {L'r', 0x13}, {L't', 0x14}, {L'y', 0x15},
+        {L'u', 0x16}, {L'i', 0x17}, {L'o', 0x18}, {L'p', 0x19}, {L'@', 0x1a}, {L'[', 0x1b},
+        {L'a', 0x1e}, {L's', 0x1f}, {L'd', 0x20}, {L'f', 0x21}, {L'g', 0x22}, {L'h', 0x23},
+        {L'j', 0x24}, {L'k', 0x25}, {L'l', 0x26}, {L';', 0x27}, {L':', 0x28}, {L']', 0x2b},
+        {L'z', 0x2c}, {L'x', 0x2d}, {L'c', 0x2e}, {L'v', 0x2f}, {L'b', 0x30}, {L'n', 0x31},
+        {L'm', 0x32}, {L',', 0x33}, {L'.', 0x34}, {L'/', 0x35},
+    };
+    std::vector<Tok> out;
+    for (const wchar_t* c = seq; *c;) {
+        bool shift = false;
+        if (c[0] == L'S' && c[1] == L'-') {
+            shift = true;
+            c += 2;
+        }
+        if (*c == L'{') {
+            const wchar_t* end = wcschr(c, L'}');
+            const std::wstring name(c + 1, end);
+            for (const Named& n : kNamed) {
+                if (name == n.name) out.push_back({n.vk, n.scan, shift});
+            }
+            c = end + 1;
+            continue;
+        }
+        for (const auto& k : kChars) {
+            if (k.ch == *c) out.push_back({0, k.scan, shift});
+        }
+        ++c;
+    }
+    return out;
+}
+
+std::wstring Escaped(const std::wstring& s) {
+    std::wstring out;
+    for (wchar_t c : s) {
+        if (c >= 0x20 && c < 0x7f) {
+            out += c;
+        } else {
+            wchar_t buf[8];
+            swprintf_s(buf, L"\\u%04X", c);
+            out += buf;
+        }
+    }
+    return out;
+}
+
+int Typing(const wchar_t* only) {  // only: run cases whose name starts with it
+    struct Case {
+        const wchar_t* name;
+        const wchar_t* keys;
+        const wchar_t* expected;
+    };
+    const Case cases[] = {
+        {L"EN JIS symbols", L"{F19}S-2{RO}S-{RO}{YEN}S-{YEN}@[:aS-a1S-7S-^", L"\"\\_\u00A5|@[:aA1'~"},
+        {L"EN transient Caps Lock", L"{F19}{F17}ab{F17}c{F17}d{F19}e", L"ABcDe"},
+        {L"KO 2-Set + JIS symbol", L"{F18}dkssudgktpdyS-2{SP}rkrk{ENTER}", L"\uC548\uB155\uD558\uC138\uC694\" \uAC00\uAC00"},
+        {L"KO backspace by jamo", L"{F18}rhk{BS}{BS}l{ENTER}", L"\uAE30"},
+        {L"KO tense, no double final, compound vowel", L"{F18}S-qkfmsS-rdhk{ENTER}",
+         L"\uBE60\uB978\u3132\uC640"},
+        {L"KO commit on F-key", L"{F18}rk{F19}a", L"\uAC00a"},
+        {L"KO commit on F-key, nothing after", L"{F18}rk{F19}", L"\uAC00"},
+        {L"KO commit on Enter, then F-key", L"{F18}rk{ENTER}{F19}a", L"\uAC00a"},
+        {L"KO commit on F-key to Japanese", L"{F18}rk{F20}3{ENTER}", L"\uAC00\u3042"},
+        {L"JA kana + dakuten", L"{F20}3t@{ENTER}", L"\u3042\u304C"},
+        {L"JA F7 katakana", L"{F20}3e{F7}{ENTER}", L"\u30A2\u30A4"},
+        {L"JA F8 half-width", L"{F20}t@{F8}{ENTER}", L"\uFF76\uFF9E"},
+        {L"JA F7 then F6", L"{F20}3{F7}{F6}{ENTER}", L"\u3042"},
+        {L"JA typing after F7 commits it", L"{F20}3{F7}e{ENTER}", L"\u30A2\u3044"},
+        {L"JA backspace", L"{F20}3e{BS}{ENTER}", L"\u3042"},
+        {L"JA escape cancels", L"{F20}3e{ESC}{F19}a", L"a"},
+        {L"JA space accepts, small tsu", L"{F20}S-z{SP}", L"\u3063"},
+        {L"JA commit on F-key", L"{F20}3{F18}rk{ENTER}", L"\u3042\uAC00"},
+        // The same with every key queued at once (the fastest possible typing).
+        {L"FAST KO commit on F-key", L"{F18}rk{F19}a", L"\uAC00a"},
+        {L"FAST KO commit on F-key to Japanese", L"{F18}rk{F20}3{ENTER}", L"\uAC00\u3042"},
+        {L"FAST JA commit on F-key", L"{F20}3{F18}rk{ENTER}", L"\u3042\uAC00"},
+        {L"FAST KO words", L"{F18}dkssudgktpdy{ENTER}", L"\uC548\uB155\uD558\uC138\uC694"},
+        {L"FAST EN symbols", L"{F19}S-2{RO}S-{RO}{YEN}a", L"\"\\_\u00A5a"},
+        {L"FAST JA kana", L"{F20}3t@{F7}{ENTER}", L"\u30A2\u30AC"},
+    };
+    int failed = 0;
+    for (const Case& c : cases) {
+        if (only && wcsncmp(c.name, only, wcslen(only))) continue;
+        SetWindowTextW(g_edit, L"");
+        Pump(100);
+        const bool fast = !wcsncmp(c.name, L"FAST", 4);  // every key queued at once
+        for (const Tok& t : Keys(c.keys)) {
+            SendKey(t.vk, t.scan, t.shift, t.vk == 0);
+            if (!fast) Pump(40);
+        }
+        Pump(250);
+        wchar_t text[256] = L"";
+        GetWindowTextW(g_edit, text, 256);
+        const bool ok = !wcscmp(text, c.expected);
+        failed += !ok;
+        std::wprintf(L"%s %s", ok ? L"PASS" : L"FAIL", c.name);
+        if (!ok) {
+            std::wprintf(L"\n     got      [%s]\n     expected [%s]", Escaped(text).c_str(),
+                         Escaped(c.expected).c_str());
+        }
+        std::wprintf(L"\n");
+    }
+    // Leave Caps Lock off and English selected.
+    if (GetKeyState(VK_CAPITAL) & 1) SendKey(VK_CAPITAL, 0x3a);
+    SendKey(VK_F19, 0x6a);
+    Pump(200);
+    std::wprintf(L"%d of %zu cases failed\n", failed, std::size(cases));
+    return failed ? 2 : 0;
+}
+
 }  // namespace
 
 // --send: type F18 Shift+2 ろ, F19 Shift+2 ろ, F20 Shift+2 ろ, F17, F19 into the foreground
@@ -239,12 +380,18 @@ int SendToForeground() {
 int wmain(int argc, wchar_t** argv) {
     if (argc > 1 && !wcscmp(argv[1], L"--send")) return SendToForeground();
     const bool handoff = argc > 1 && !wcscmp(argv[1], L"--handoff");
+    // --typing-rich: the same cases in a TSF-aware RichEdit instead of the IMM-based Edit.
+    const bool rich = argc > 1 && !wcscmp(argv[1], L"--typing-rich");
+    const bool typing = rich || (argc > 1 && !wcscmp(argv[1], L"--typing"));
     const int rounds =
         handoff ? (argc > 2 ? _wtoi(argv[2]) : 20) : (argc > 1 ? _wtoi(argv[1]) : 20);
     HWND frame = CreateWindowExW(0, L"STATIC", L"FKeyIME probe", WS_OVERLAPPEDWINDOW | WS_VISIBLE,
                                  200, 200, 600, 200, nullptr, nullptr, nullptr, nullptr);
-    g_edit = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER, 10, 10, 560, 30,
-                             frame, nullptr, nullptr, nullptr);
+    if (rich) LoadLibraryW(L"msftedit.dll");
+    g_edit = CreateWindowExW(0, rich ? MSFTEDIT_CLASS : L"EDIT", L"",
+                             WS_CHILD | WS_VISIBLE | WS_BORDER, 10, 10, 560, 30, frame, nullptr,
+                             nullptr, nullptr);
+    if (rich) SendMessageW(g_edit, EM_SETEDITSTYLE, SES_USECTF, SES_USECTF);
     // WM_INPUTLANGCHANGE goes to the top-level window.
     SetWindowSubclass(frame, LangChangeProc, 1, 0);
     SetWindowSubclass(g_edit, LangChangeProc, 1, 0);
@@ -274,8 +421,8 @@ int wmain(int argc, wchar_t** argv) {
         SetFocus(g_edit);
     }
     std::wprintf(L"foreground=%d\n", GetForegroundWindow() == frame);
-    if (handoff) {
-        const int result = Handoff(rounds);
+    if (handoff || typing) {
+        const int result = handoff ? Handoff(rounds) : Typing(argc > 2 ? argv[2] : nullptr);
         DestroyWindow(frame);
         return result;
     }

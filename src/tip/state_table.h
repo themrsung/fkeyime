@@ -31,9 +31,11 @@ struct Table {
     std::uint32_t magic;
     std::uint32_t version;
     std::uint32_t slot_count;
-    std::uint32_t reserved;
+    volatile LONG session_flags;  // kFlagRomaji: global Japanese input (was reserved, 0)
     Slot slots[kSlotCount];
 };
+
+inline constexpr LONG kFlagRomaji = 1;
 
 // Whether a thread still exists and belongs to the process. Injected so tests can fake it.
 using AliveFn = bool (*)(DWORD thread_id, DWORD process_id);
@@ -51,6 +53,10 @@ void Release(Table* table, DWORD thread_id);
 
 // The mode of `thread_id` if FKeyIME is active on it, otherwise -1. Ignores dead threads.
 LONG Find(const Table* table, DWORD thread_id, AliveFn alive = ThreadAlive);
+
+// Session-wide flags (kFlagRomaji), so every window agrees on kana vs romaji.
+LONG SessionFlags(const Table* table);
+void SetSessionFlags(Table* table, LONG flags);
 
 // The session's table, created on first use with access for every process in the session,
 // AppContainer and low-integrity ones included. nullptr if it can't be opened.

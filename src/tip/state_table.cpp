@@ -85,6 +85,12 @@ LONG Find(const Table* table, DWORD thread_id, AliveFn alive) {
     return -1;
 }
 
+LONG SessionFlags(const Table* table) {
+    return table->magic == kMagic ? table->session_flags : 0;
+}
+
+void SetSessionFlags(Table* table, LONG flags) { InterlockedExchange(&table->session_flags, flags); }
+
 Table* Shared() {
     static Table* table = [] () -> Table* {
         // Everyone and ALL APPLICATION PACKAGES may read and write; low-integrity writers allowed.

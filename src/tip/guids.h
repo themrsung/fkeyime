@@ -26,6 +26,10 @@ inline constexpr GUID kProfileJapanese = {
 inline constexpr GUID kLangBarItemMode = {
     0x2f6b62c8, 0x63e3, 0x4086, {0x85, 0xd3, 0x18, 0x40, 0xf0, 0xab, 0xd0, 0xe8}};
 
+// Display attribute of the text being composed (underline). {CDB4ADB8-14FB-46A2-9AC9-EEE321451FD4}
+inline constexpr GUID kDisplayAttributeInput = {
+    0xcdb4adb8, 0x14fb, 0x46a2, {0x9a, 0xc9, 0xee, 0xe3, 0x21, 0x45, 0x1f, 0xd4}};
+
 inline constexpr unsigned short kLangIdEnglish = 0x0409;
 inline constexpr unsigned short kLangIdKorean = 0x0412;
 inline constexpr unsigned short kLangIdJapanese = 0x0411;
