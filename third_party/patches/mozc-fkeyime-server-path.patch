@@ -1,0 +1,25 @@
+diff --git a/src/base/system_util.cc b/src/base/system_util.cc
+index 0981fa17..7d772b53 100644
+--- a/src/base/system_util.cc
++++ b/src/base/system_util.cc
+@@ -318,6 +318,20 @@ std::string SystemUtil::GetServerDirectory() {
+   }
+ 
+ #ifdef _WIN32
++  // FKeyIME: the server runs from wherever FKeyIME installs it, not from Mozc's
++  // install directory. When this process is the server, its own directory is the
++  // server directory, so the session watch dog's client accepts this server
++  // instead of failing every check and aborting (FKeyIME spec, section 9).
++  {
++    wchar_t self[MAX_PATH] = {};
++    const DWORD length = ::GetModuleFileNameW(nullptr, self, MAX_PATH);
++    if (length > 0 && length < MAX_PATH) {
++      const std::string self_path = win32::WideToUtf8(self);
++      if (FileUtil::Basename(self_path) == kMozcServerName) {
++        return FileUtil::Dirname(self_path);
++      }
++    }
++  }
+   const std::string install_dir_from_registry = GetMozcInstallDirFromRegistry();
+   if (!install_dir_from_registry.empty()) {
+     return install_dir_from_registry;

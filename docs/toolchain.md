@@ -42,6 +42,7 @@ Outputs: `build/<arch>/src/tip/<Config>/fkeyime.dll` and
 ```powershell
 tools/fetch-mozc.ps1                  # clone the pinned commit, apply third_party/patches/
 tools/build-mozc-server.ps1           # build //server:mozc_server_win, copy it to build\mozc\
+tools/test-mozc-server.ps1            # the server must survive 30 s of 10 s watch dog cycles
 ```
 
 `tools/spike.ps1 -Install` copies `build\mozc\fkeyime_mozc_server.exe` next to the TIP. With a

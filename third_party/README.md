@@ -5,4 +5,6 @@
   `patches/`.
 - `patches/`: FKeyIME's changes to Mozc (`docs/spec.md`, section 9): own names, pipe and
   profile folder (`mozc-fkeyime-names.patch`), and a server that runs without Mozc's sandbox
-  (`mozc-fkeyime-unsandboxed-server.patch`, to be replaced before a release).
+  (`mozc-fkeyime-unsandboxed-server.patch`, to be replaced before a release), and the server's
+  own folder as its server directory, so its session watch dog doesn't abort it
+  (`mozc-fkeyime-server-path.patch`).

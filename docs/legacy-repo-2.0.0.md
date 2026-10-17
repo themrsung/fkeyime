@@ -139,6 +139,9 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Conversion server watch-dog fix.** No change for the 2.0.0 work. Path B's verification could
+  include FKeyIME's `tools/test-mozc-server.ps1` (the server survives watch dog cycles). Still not
+  ready.
 - **Restart apps after installing.** Path B docs (04-fkeyime.md) must tell users to sign out or
   restart their apps after installing or updating FKeyIME: running apps may not load it (spec
   section 3). Still not ready.

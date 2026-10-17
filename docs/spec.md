@@ -353,6 +353,7 @@ for the conversion only.
     and profile folder (`%LOCALAPPDATA%Low\FKeyIME Mozc`), so it never collides with a real
     Mozc install.
   - `mozc-fkeyime-unsandboxed-server.patch`: see "Security" below.
+  - `mozc-fkeyime-server-path.patch`: see "Watch dog" below.
 - `src/tip/candidate_window.*`: the candidate list, a topmost popup that never takes focus,
   under the segment being converted (`ITfContextView::GetTextExt`, the caret as a fallback),
   scaled for the window's DPI, with the page position (`2/36`).
@@ -381,6 +382,15 @@ and the server refuses to run without it. FKeyIME starts it directly, so the sec
 the server run without the sandbox thread token. It then runs with the user's normal rights.
 Before a release, start it through Mozc's sandbox instead (`base/win32/win_sandbox.*`), or with
 an equivalent restricted token (open item for M5).
+
+**Watch dog.** Every 180 s Mozc's session watch dog connects to its own server with Mozc's
+client, which only accepts a server at Mozc's install path (`SystemUtil::GetServerPath`). Ours
+runs from FKeyIME's folder, so Cleanup and three pings failed and the watch dog aborted the
+server (`LOG(FATAL)`, exit `0xC0000409`), exactly 183 s after it started *(measured: event log
+crashes at 18:01 and 18:57 on 2026-10-17; reproduced in 15 s with `--watch_dog_interval=10`)*.
+The TIP restarted it on the next conversion, so it showed only as a delay. The patch makes the
+server's own folder its server directory. `tools/test-mozc-server.ps1` runs the server with a
+10 s watch dog for 30 s: it fails on the unpatched server and passes on the patched one.
 
 **Lifetime.** The TIP that needs it first starts the server, detached from that app (and from
 its job, where allowed). AppContainer apps can't start processes: they convert only while the

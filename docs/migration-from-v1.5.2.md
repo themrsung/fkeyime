@@ -126,6 +126,9 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Conversion server no longer crashes every 3 minutes.** Mozc's watch dog aborted FKeyIME's
+  server because it runs outside Mozc's install folder; conversion recovered on the next Space,
+  with a short delay. Fixed with a Mozc patch. Still no installer.
 - **Restart apps after installing.** Apps that were already running may keep typing with
   Windows' plain layouts (English letters in Korean and Japanese) until they restart; signing out
   restarts them all. Measured: Notepad typed Korean and kana again after a restart.
