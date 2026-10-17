@@ -73,8 +73,15 @@ Language options → Installed keyboards: **FKeyIME is listed** (owner, by eye),
 only, no keyboard options. So on the owner's PC the missing entry comes from that PC: its
 development install, the way the profiles first entered its language list
 (`Set-WinUserLanguageList`), or 25H2 *(hypotheses)*. Remaining question: what makes Settings
-offer keyboard options (Mozc has them; FKeyIME implements the same `ITfFnConfigure`). The
-Sandbox check now records whether Settings asks the TIP for anything.
+offer keyboard options (Mozc has them; FKeyIME implements the same `ITfFnConfigure`). 
+
+Third Sandbox pass (owner, by eye): FKeyIME is listed under **all three** languages (Korean,
+Japanese, English), each with only "Remove" in its ⋯ menu. FKeyIME's log in the Sandbox has no
+`DllGetClassObject` entry from Settings, so Settings decides about keyboard options without
+loading the TIP *(inferred: the log also stays empty when no app has used FKeyIME yet)*. No
+Microsoft documentation found on how Settings decides (searched 2026-10-18). Next idea: install
+Mozc in the Sandbox next to FKeyIME and diff everything Settings could read (registry under
+`CTF`, `Control Panel\International`, the package's file properties).
 
 ## Workaround
 

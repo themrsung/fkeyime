@@ -137,6 +137,10 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Settings shows FKeyIME, without options.** After an MSI install (Windows Sandbox), FKeyIME
+  appears under all three languages in Windows Settings, with Remove only. Its settings window
+  is in the Start menu. No user-visible change in this commit.
+
 - **Typo fix in installer/README.md.** No user-visible change.
 
 - **Installer tested in Windows Sandbox.** Install and uninstall work without a restart, the

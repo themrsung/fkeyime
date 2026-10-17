@@ -149,6 +149,10 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Settings listing narrowed.** After an MSI install, Windows Settings lists FKeyIME under all three
+  languages but offers no keyboard options; tell users to use Start menu → FKeyIME settings.
+  Still not ready.
+
 - **Typo fix in installer/README.md.** No change for the 2.0.0 work.
 
 - **Installer tested in Windows Sandbox.** Clean install and uninstall, no restart; Settings lists

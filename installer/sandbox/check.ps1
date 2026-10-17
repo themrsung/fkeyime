@@ -26,7 +26,7 @@ $out = "C:\fkeyime\results\check-$Label-$(Get-Date -f HHmmss).txt"
     $windows = $A::RootElement.FindAll($T::Children, [System.Windows.Automation.Condition]::TrueCondition)
     "  top-level windows: " + (($windows | ForEach-Object { "'$($_.Current.Name)'" }) -join ', ')
     foreach ($w in $windows) {
-        if ($w.Current.Name -notmatch 'Settings') { continue }
+        if ($w.Current.Name -notmatch ('Settings|' + [char]0xC124 + [char]0xC815)) { continue }
         "  -- window '$($w.Current.Name)'"
         $seen = @{}
         foreach ($e in $w.FindAll($T::Descendants, [System.Windows.Automation.Condition]::TrueCondition)) {
