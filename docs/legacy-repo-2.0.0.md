@@ -149,6 +149,10 @@ section 5). ARM64: none (not shipped).
 
 One entry per FKeyIME commit (newest first).
 
+- **Settings listing, still open.** Measured that Windows Settings lists another third-party IME
+  (Mozc) but not FKeyIME; the remaining suspect is FKeyIME's three languages under one CLSID.
+  Keep pointing to the Start-menu settings shortcut. Still not ready.
+
 - **Typo fix in docs/issues.** No change for the 2.0.0 work.
 
 - **Registration cleanup.** Display names and an icon for the three profiles, no substitute

@@ -33,15 +33,29 @@ menu, where the owner picks it.)*
 | No substitute layout (every profile used to name the Japanese 0x04110411) | `SubstituteLayout` gone | No |
 | Per-user registration with Windows' `InstallLayoutOrTip` (the MSI's `--user-install` step) for the three profiles | returns success; no per-user `HKCU\Software\Microsoft\CTF\TIP` entry appears for FKeyIME (the Microsoft IMEs have one with `Enable = 1`, being disabled machine-wide) | No |
 
-All three changes are kept: they match how Mozc's TIP registers (`third_party/mozc/src/win32/base/tsf_registrar.cc`:
+| TIP-level `Enable = "1"` (`ITfInputProcessorProfiles::Register`, as Mozc calls it) | present | No |
+| Test only: no per-profile `Enable` values (Mozc has none) | removed, then restored by re-registering | No |
+
+**Settings does list a third-party IME** *(measured 2026-10-18)*: with Mozc 3.35.6354 (built in
+M0, `Mozc64.msi`) installed on the owner's PC, 일본어 → 설치된 키보드 shows "Mozc 입력기" with its
+own 키보드 옵션, next to the Microsoft IME. FKeyIME JA, in the same language list, isn't shown.
+So the cause is specific to FKeyIME.
+
+Remaining difference from Mozc: FKeyIME is **one CLSID with three languages** (en-US, ko-KR,
+ja-JP); Mozc and the Microsoft IMEs have one language per CLSID. Testing it means hiding the EN
+and KO profiles for a moment (deleting their HKLM keys, restored by re-registering); that needs
+the owner's OK.
+
+All of the kept changes: they match how Mozc's TIP registers (`third_party/mozc/src/win32/base/tsf_registrar.cc`:
 same categories, a display name, an icon index), they're harmless, and the substitute layout had
 no effect on typing (M0). Typing hasn't been re-measured since, though.
 
 ## Cause
 
-Not known. FKeyIME's registration now matches Mozc's step for step. Open question: does this
-Windows 11 build (25H2, 26200) list **any** third-party IME's keyboards in Settings? Test it by
-installing another one, for example `Mozc64.msi` from M0 (`docs/toolchain.md`), in a VM.
+Not known. Settings lists Mozc, so third-party IMEs are listed. Hypothesis: Settings skips a
+TIP that registers profiles in several languages. If that's it, the fix needs one CLSID per
+language, which changes `src/tip/guids.h`'s design (its GUIDs are permanent: new ones would be
+added, not changed) and is the owner's decision.
 
 ## Workaround
 

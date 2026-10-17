@@ -97,6 +97,11 @@ HRESULT RegisterProfiles(HINSTANCE module) {
     ComPtr<ITfInputProcessorProfilesEx> profiles;
     hr = manager.As(&profiles);
     if (FAILED(hr)) return hr;
+    // The older Register writes the TIP-level "Enable" value. Windows Settings lists a TIP's
+    // keyboards only with it: Mozc, which calls Register, was listed and FKeyIME, without it,
+    // wasn't (measured, docs/issues/settings-doesnt-list-fkeyime.md).
+    hr = profiles->Register(kClsidTextService);
+    if (FAILED(hr)) return hr;
 
     // The DLL's own icon (IDI_FKEYIME, the first icon: index 0) and string table.
     wchar_t icon[MAX_PATH];
@@ -133,6 +138,8 @@ HRESULT UnregisterProfiles() {
     for (const ProfileInfo& p : kProfiles) {
         manager->UnregisterProfile(kClsidTextService, p.langid, *p.profile, 0);
     }
+    ComPtr<ITfInputProcessorProfiles> profiles;
+    if (SUCCEEDED(manager.As(&profiles))) profiles->Unregister(kClsidTextService);
     return S_OK;
 }
 

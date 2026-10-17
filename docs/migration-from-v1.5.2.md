@@ -137,6 +137,10 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 
 One entry per FKeyIME commit (newest first).
 
+- **Registration matches Mozc's.** FKeyIME also calls the older TSF registration (a TIP-level
+  "Enable"). Windows Settings still doesn't list FKeyIME's keyboards, though it does list Mozc's
+  (measured). No user-visible change.
+
 - **Typo fix in docs/issues.** No user-visible change.
 
 - **Registration cleanup.** FKeyIME's keyboards now have a display name and an icon, and no
