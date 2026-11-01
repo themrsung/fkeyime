@@ -1,5 +1,10 @@
 # For agents: upgrading hhkb-ekj-trilingual to v2.0.0 (FKeyIME or AutoHotkey)
 
+> [!CAUTION]
+> **FKeyIME is abandoned and archived.** Its successor is
+> [`team-mirae/jis-moonshot`](https://github.com/team-mirae/jis-moonshot). Don't release
+> hhkb-ekj-trilingual v2.0.0 with FKeyIME as Path B; this guide is kept only as a record.
+
 Audience: a coding agent working in
 [`themrsung/hhkb-ekj-trilingual`](https://github.com/themrsung/hhkb-ekj-trilingual). This file says
 what to change in that repo to release **v2.0.0**. In v2.0.0, Windows users **choose** between
@@ -148,6 +153,10 @@ section 5). ARM64: none (not shipped).
 ## Changelog of this guide
 
 One entry per FKeyIME commit (newest first).
+
+- **FKeyIME is abandoned.** The repo is archived; its successor is
+  [`team-mirae/jis-moonshot`](https://github.com/team-mirae/jis-moonshot). Don't ship FKeyIME as
+  Path B in v2.0.0; never ready.
 
 - **Parsec from a Mac.** Measured limit: Parsec doesn't forward F18–F20 from macOS, so Path B
   can't switch modes over Parsec yet (typing works). Mention it as a known limit in

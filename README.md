@@ -1,5 +1,10 @@
 # FKeyIME
 
+> [!CAUTION]
+> **This project is abandoned.** Its successor is
+> [`team-mirae/jis-moonshot`](https://github.com/team-mirae/jis-moonshot). This repo is archived
+> and read-only; nothing here will be fixed or released.
+
 One Windows IME for **English, Korean and Japanese** on a JIS **HHKB Studio**, switched with the
 **F keys**, which is where the name comes from:
 

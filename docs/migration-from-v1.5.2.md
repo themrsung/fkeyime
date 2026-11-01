@@ -1,5 +1,10 @@
 # Migrating from hhkb-ekj-trilingual v1.5.2 to FKeyIME
 
+> [!CAUTION]
+> **FKeyIME is abandoned and archived.** Its successor is
+> [`team-mirae/jis-moonshot`](https://github.com/team-mirae/jis-moonshot). Don't migrate to
+> FKeyIME; this guide is kept only as a record.
+
 hhkb-ekj-trilingual is now at `v1.5.3` (it only added a 104/108-key page; the Windows setup is the
 same as v1.5.2), and its `experimental/2.0.0-preview` branch already offers FKeyIME as Path B
 (`docs/windows/04-fkeyime.md` there). This guide applies to v1.5.3 too.
@@ -136,6 +141,10 @@ F-key lines (those would take F17–F20 away from FKeyIME), or use another tool 
 ## Changelog of this guide
 
 One entry per FKeyIME commit (newest first).
+
+- **FKeyIME is abandoned.** The repo is archived; its successor is
+  [`team-mirae/jis-moonshot`](https://github.com/team-mirae/jis-moonshot). Stay on v1.5.2 (or
+  v1.5.3) and don't migrate to FKeyIME.
 
 - **Remote desktop (Parsec) from a Mac.** Measured: typing works with JIS symbols, but Parsec
   doesn't pass F18–F20, 英数, かな or Ctrl from the Mac, so only English is reachable that way
